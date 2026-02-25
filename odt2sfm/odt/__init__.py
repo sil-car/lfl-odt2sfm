@@ -23,7 +23,7 @@ class OdtChapter:
             raise ValueError(f"File does not exist: {self.file_path}")
 
         self._odt = None
-        self._style_reference_file = None
+        self._styles_reference_file = None
         self._sfm_ref = None
         self._all_styles = None
         self._styles = None
@@ -67,9 +67,6 @@ class OdtChapter:
     @property
     def odt(self):
         if self._odt is None:
-            lock_file = self.file_path.parent / f".~lock.{self.file_path.name}#"
-            if lock_file.is_file():
-                raise OSError(f"File already open: {self.file_path}")
             self._odt = Document(self.file_path)
         return self._odt
 
@@ -105,6 +102,43 @@ class OdtChapter:
         return paragraphs
 
     @property
+    def sfm_ref(self):
+        if not self._sfm_ref:
+            self._sfm_ref = dict()
+            for line in self.styles_reference_file.read_text().splitlines():
+                if line.lstrip().startswith("#"):  # skip commented lines
+                    continue
+                try:
+                    k, v = line.split("\\")
+                    self._sfm_ref[k.strip()] = f"\\{v.strip()}"
+                except ValueError as e:
+                    raise ValueError(f"{e}: {line}")
+        return self._sfm_ref
+
+    @sfm_ref.setter
+    def sfm_ref(self, value):
+        if not isinstance(value, dict):
+            raise ValueError("Must be instance of `dict`.")
+        else:
+            self._sfm_ref = value
+
+    @property
+    def styles_reference_file(self):
+        if self._styles_reference_file is None:
+            filename = "styles-reference.txt"
+            # Check ODT file's parent folder.
+            logging.debug(f"{self.file_path=}")
+            dir_path = self.file_path.parent
+            ref_file = dir_path / filename
+            if not ref_file.is_file():
+                # Check ODT file's parent's parent folder.
+                ref_file = dir_path.parent / filename
+                if not ref_file.is_file():
+                    raise ValueError("No valid styles-reference.txt found.")
+            self._styles_reference_file = ref_file
+        return self._styles_reference_file
+
+    @property
     def styles(self):
         """Return list of valid styles for translatable paragraphs and spans."""
 
@@ -123,39 +157,6 @@ class OdtChapter:
                     styles[node.style] = self.sfm_ref.get(node.style)
             self._styles = styles
         return self._styles
-
-    @property
-    def sfm_ref(self):
-        if not self._sfm_ref:
-            self._sfm_ref = dict()
-            for line in self.style_reference_file.read_text().splitlines():
-                if line.lstrip().startswith("#"):  # skip commented lines
-                    continue
-                try:
-                    k, v = line.split("\\")
-                    self._sfm_ref[k.strip()] = f"\\{v.strip()}"
-                except ValueError as e:
-                    raise ValueError(f"{e}: {line}")
-        return self._sfm_ref
-
-    @sfm_ref.setter
-    def sfm_ref(self, value):
-        if not isinstance(value, dict):
-            raise ValueError("Must be instance of `dict`.")
-        else:
-            self._sfm_ref = value
-
-    @property
-    def style_reference_file(self):
-        if self._style_reference_file is None:
-            filename = "styles-reference.txt"
-            # Check ODT file's parent folder.
-            ref_file = self.file_path.parent / filename
-            if not ref_file.is_file():
-                # Fall back to repo file.
-                ref_file = Path(__file__).parents[2] / filename
-            self._style_reference_file = ref_file
-        return self._style_reference_file
 
     def all_styles_and_paragraphs(self):
         # raise NotImplementedError
@@ -188,7 +189,7 @@ class OdtChapter:
     def save(self, file_path):
         lock_file = file_path.parent / f".~lock.{self.file_path.name}#"
         if lock_file.is_file():
-            raise OSError(f"File already open: {self.file_path}")
+            raise OSError(f"Can't save; file already open: {self.file_path}")
         self.odt.save(str(file_path))
 
     def to_sfm(self):
@@ -198,40 +199,17 @@ class OdtChapter:
         if self.number > 0:
             out_text.append(f"\\c {self.number}")
         # Add lines from ODT document.
-        for p in self.paragraphs:
-            # FIXME: Cut off for testing.
-            continue
+        for paragraph in self.paragraphs:
+            # logging.debug(f"{paragraph.text_recursive[:30]=}")
             # Ignore paragraphs with no style info.
-            if p.style is None:
+            if paragraph.style is None:
                 continue
             # Ignore paragraphs with no text.
-            if len(p.text) == 0:
+            if len(paragraph.text_recursive) == 0:
                 continue
 
-            line = ""
-            # See if corresponding SFM exists in reference table.
-            sfm = self.sfm_ref.get(p.style)
-            if sfm:
-                line = f"{sfm} {p.text}"
-            if len(p.spans) > 0:
-                # If span text is identical to paragraph text, use the span's
-                # style instead of paragraph's style (e.g. ODT lists).
-                s1 = p.spans[0]
-                if p.text == s1.text:
-                    sfm = self.sfm_ref.get(s1.style)
-                    line = f"{sfm} {s1.text}"
-                # If span(s) are a subset of paragraph text, try to apply inline
-                # formatting.
-                else:
-                    for s in p.spans:
-                        sfm_inline = self.sfm_ref.get(s.style)
-                        if sfm_inline and len(s.text) > 0:
-                            s_inline = f"{sfm_inline} {s.text}{sfm_inline}*"
-                            line = line.replace(s.text, s_inline)
+            out_text.extend(paragraph.to_sfm().split("\n"))
 
-            # Add SFM line.
-            if len(line) > 0:
-                out_text.append(line)
         return "\n".join(out_text)
 
     def __str__(self):
@@ -341,7 +319,7 @@ class OdtBook:
         )
         out_text.append("\\usfm 3.0")
 
-        # Add lines from lessons.
+        # Add lines from given chapter numbers.
         if chapters == "all":
             chs = self.chapters
         else:
@@ -349,7 +327,9 @@ class OdtBook:
             ch_nums = [int(n) for n in ch_nums]
             chs = [self.chapters[i] for i in ch_nums]
         for chapter in chs:
-            out_text.append(chapter.to_sfm())
+            out_text.extend(chapter.to_sfm().split("\n"))
+        # Add final newline.
+        out_text.append("")
         return "\n".join(out_text)
 
 
