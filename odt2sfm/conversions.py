@@ -96,7 +96,7 @@ class SfmToOdt(Conversion):
             if c is None:
                 raise ValueError(f"Invalid chapter type: {type(c)}")
 
-        for odt_p in odt_chapter.paragraphs:
+        for i, odt_p in enumerate(odt_chapter.paragraphs):
             print(f'[{odt_p.style}] "{odt_p.text_recursive}"')
             try:
                 sfm_p = sfm_chapter.paragraphs[i]

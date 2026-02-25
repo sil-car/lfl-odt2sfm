@@ -1,7 +1,7 @@
 import logging
 import unicodedata
 
-from odfdo import Element
+from odfdo import Element, Span
 
 
 class OdtElement:
@@ -106,7 +106,11 @@ class OdtSpan(OdtElement):
     @property
     def text(self):
         # .inner_text includes child nodes, such as tabs and spacers.
-        return self.node.inner_text
+        # FIXME: This seems a bit hacky, but it works well enough for now.
+        if "text:s" or "text:tab" in [c.tag for c in self.node.children]:
+            return self.node.inner_text
+        else:
+            return self.node.text
 
     @text.setter
     def text(self, value):
@@ -131,16 +135,28 @@ class OdtParagraph(OdtElement):
         return self.node.style
 
     def _get_children_from_node(self, node, accumulator=None):
+        """Recurively check the node and its child nodes for those that have
+        updatable content."""
+
         if accumulator is None:
             accumulator = list()
 
-        # We re-interpret text as a "child" for cleaner looping.
+        # We re-interpret text as a "child" for easier looping.
         if node.text:
+            # logging.debug(f"children: {node.__class__.__name__}|{node.text}|")
             if node.text.replace(" ", "").replace("\t", "") != "":
-                accumulator.append(OdtText(node.text, node, chapter=self.chapter))
+                if isinstance(node, Span):
+                    if "Quel" in node.text:
+                        logging.debug(
+                            f"quel: {node.tag}|{node.text}|{node.text_recursive}|"
+                        )
+                    child = OdtSpan(node, chapter=self.chapter)
+                else:
+                    child = OdtText(node.text, node, chapter=self.chapter)
+                accumulator.append(child)
             else:
                 # logging.debug(f"{node.__dir__()}")
-                logging.debug(f"Excluding text w/ only space from: {node.tag}")
+                logging.debug(f"Excluding node w/ only space from: {node.tag}")
 
         # Evaluate node children.
         for child_node in node.children:
@@ -156,6 +172,42 @@ class OdtParagraph(OdtElement):
                 logging.debug(f"Excluding tail w/ only space from: {node.tag}")
 
         return accumulator
+
+    def to_sfm(self):
+        out_text = list()
+        sfm = self.chapter.sfm_ref.get(self.style)
+        line = f"{sfm} "
+        logging.debug(f"{[f'{c.__class__.__name__}|{c.text}|' for c in self.children]}")
+        prev_child = None
+        for child in self.children:
+            logging.debug(f"{line=}")
+            if isinstance(child, OdtText):
+                # Add double-space when following another Text.
+                if isinstance(prev_child, OdtText):
+                    line += "  "
+                line += child.text
+            elif isinstance(child, OdtSpan):
+                # Use span style
+                sfm = self.chapter.sfm_ref.get(child.style)
+                if sfm is None:
+                    raise ValueError(f'No SFM span style defined for "{child.style}"')
+                if sfm.endswith("v"):
+                    # Add newline before verse marker.
+                    line += "\n"
+                logging.debug(f"|{child.text=}|{child.text_recursive=}|")
+                line += f"{sfm} {child.text}"
+                if not sfm.endswith("v"):
+                    # Add ending marker.
+                    line += f"{sfm}*"
+            prev_child = child
+
+        # Add SFM line.
+        if len(line) > 0:
+            lines = line.split("\n")
+            # logging.debug(f"{lines=}")
+            out_text.extend(lines)
+
+        return "\n".join(out_text)
 
     def update_text(self, sfm_paragraph):
         """Starting with the paragraph node, recursively check for Text nodes
