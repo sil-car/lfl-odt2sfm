@@ -6,7 +6,7 @@ from odfdo import Document
 
 from ..base import get_timestamp
 from ..sfm.elements import SfmParagraph
-from .base import get_node_doc_style
+from .base import get_node_doc_style, node_has_paragraph_descendent
 from .elements import OdtParagraph
 
 
@@ -91,6 +91,21 @@ class OdtChapter:
                         f"Skipping node w/ excluded style: {node.tag}:{node.style}"
                     )
                     continue
+                # FIXME: This should only exclude a node if it has no text of
+                # its own and if it has at least one paragraph among its
+                # descendants.
+                if (
+                    not node.text
+                    and not node.tail
+                    and node_has_paragraph_descendent(node)
+                ):
+                    logging.debug(
+                        f"Skipping node whose text comes from a descendent node: {node.tag}:{node.children}"
+                    )
+                    continue
+                # if node.text_recursive and not node.text and not node.tail:
+                #     # logging.debug(f"{node.text=}; {node.tail=}")
+                #     # logging.debug(f"{node.children=}")
                 paragraphs.append(OdtParagraph(node, chapter=self))
             self._paragraphs = paragraphs
         return self._paragraphs
@@ -100,7 +115,10 @@ class OdtChapter:
         if not self._sfm_ref:
             self._sfm_ref = dict()
             for line in self.styles_reference_file.read_text().splitlines():
-                if line.lstrip().startswith("#"):  # skip commented lines
+                line = line.strip()
+                if line.startswith("#"):  # skip commented lines
+                    continue
+                elif line == "":  # skip blank lines
                     continue
                 try:
                     k, v = line.split("\\")
@@ -121,15 +139,15 @@ class OdtChapter:
         if self._styles_reference_file is None:
             filename = "styles-reference.txt"
             # Check ODT file's parent folder.
-            logging.debug(f"{self.file_path=}")
             dir_path = self.file_path.parent
-            ref_file = dir_path / filename
+            ref_file = dir_path / f"{self.file_path.stem}.{filename}"
             if not ref_file.is_file():
                 # Check ODT file's parent's parent folder.
                 ref_file = dir_path.parent / filename
                 if not ref_file.is_file():
                     raise ValueError("No valid styles-reference.txt found.")
             self._styles_reference_file = ref_file
+            logging.debug(f"Using styles reference file: {self._styles_reference_file}")
         return self._styles_reference_file
 
     @property

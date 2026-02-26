@@ -20,3 +20,17 @@ def get_node_doc_style(node, document):
             logging.debug(f'Parent style of "{node.style}" is "{doc_style}"')
             style = doc_style
     return style
+
+
+def node_has_paragraph_descendent(node):
+    qnames = ("text:h", "text:p")
+
+    def node_contains_paragraph(n):
+        for c in n.children:
+            # logging.debug(f"Checking node tag: {c.tag}")
+            if c.tag in qnames:
+                return True
+            else:
+                return node_contains_paragraph(c)
+
+    return node_contains_paragraph(node)
