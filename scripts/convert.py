@@ -8,8 +8,8 @@ from odt2sfm.conversions import OdtToSfm, SfmToOdt
 
 
 def main():
-    # logging.getLogger().setLevel(logging.DEBUG)
-    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.DEBUG)
+    # logging.getLogger().setLevel(logging.INFO)
     # logging.getLogger().setLevel(logging.WARNING)
 
     source_path = None
@@ -35,8 +35,7 @@ def main():
             )
 
     c = conv(source=source_path, destination=dest_path)
-    # c.odt_book.chapters[1].all_styles_and_paragraphs()
-    # conv.compare_paragraphs((conv.sfm_book.chapters[1], conv.odt_book.chapters[1]))
+    # c.compare_paragraphs((c.sfm_book.chapters[1], c.odt_book.chapters[1]))
     c.run()
 
 

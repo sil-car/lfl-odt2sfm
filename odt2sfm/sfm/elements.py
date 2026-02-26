@@ -95,6 +95,14 @@ class SfmElement:
             self._marker_separator = match[0][-1]
         return self._marker
 
+    @marker.setter
+    def marker(self, value):
+        old_marker = self.marker
+        self._marker = value
+        self.sfm_raw = (
+            f"{self.marker} {self.sfm_raw.removeprefix(old_marker).lstrip(' ')}"
+        )
+
     @property
     def odt_style(self):
         return self._odt_style
@@ -107,11 +115,11 @@ class SfmElement:
     def sfm_raw(self):
         return self._sfm_raw
 
-    # @sfm_raw.setter
-    # def sfm_raw(self, value):
-    #     if not value.startswith("\\"):
-    #         raise ValueError("SFM text does not begin with a backslash '\\'")
-    #     self._sfm_raw = value
+    @sfm_raw.setter
+    def sfm_raw(self, value):
+        if not value.startswith("\\"):
+            raise ValueError(f'SFM text does not begin with a backslash: "{value}"')
+        self._sfm_raw = value
 
     @property
     def spans(self):

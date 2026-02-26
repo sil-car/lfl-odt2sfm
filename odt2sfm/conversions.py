@@ -65,12 +65,13 @@ class OdtToSfm(Conversion):
 
     def run(self):
         # FIXME: Add any book details here.
+        chapters = "all"
         if self.destination_path:
             # FIXME: For testing, skip all chapters but Chapter 1.
-            self.destination_path.write_text(self.odt_book.to_sfm(chapters="1"))
+            self.destination_path.write_text(self.odt_book.to_sfm(chapters=chapters))
             print(f"SFM data written to {self._destination_path}")
         else:
-            print(self.odt_book.to_sfm(chapters="1"))
+            print(self.odt_book.to_sfm(chapters=chapters))
 
 
 class SfmToOdt(Conversion):
@@ -121,7 +122,6 @@ class SfmToOdt(Conversion):
             if sfm_chapter.number != 1:
                 continue
             odt_chapter = self.odt_book.chapters.get(sfm_chapter.number)
-            # odt_chapter.all_styles_and_paragraphs()
             # Compare paragraph counts in original data and updated data.
             self._verify_paragraph_count(sfm_chapter, odt_chapter)
             # Ensure that SFM marker is correct for ODT paragraph (or span) style.

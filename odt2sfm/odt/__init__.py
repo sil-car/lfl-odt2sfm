@@ -5,6 +5,8 @@ from pathlib import Path
 from odfdo import Document
 
 from ..base import get_timestamp
+from ..sfm.elements import SfmParagraph
+from .base import get_node_doc_style
 from .elements import OdtParagraph
 
 
@@ -13,6 +15,7 @@ class OdtChapter:
     "chapter" in Paratext."""
 
     RE_2_DIGITS = re.compile(r"(?<=L)[0-9]{2}")
+    RE_PIC = re.compile(r"\(Pictures/[0-9A-F]+\.[a-zA-Z1-9]{2,}\)")
 
     def __init__(self, file_path=None):
         if file_path is None:
@@ -22,10 +25,11 @@ class OdtChapter:
         if not self.file_path.is_file():
             raise ValueError(f"File does not exist: {self.file_path}")
 
+        self._all_paragraphs = None
         self._odt = None
+        self._paragraphs = None
         self._styles_reference_file = None
         self._sfm_ref = None
-        self._all_styles = None
         self._styles = None
 
     @property
@@ -34,23 +38,17 @@ class OdtChapter:
         paragraph. Note: Some definied paragraphs have no text, some have no
         defined style, and some are not intended to be user-editable."""
 
-        # NOTE: self.odt.body.headers and .paragraphs exist, but they will not
-        # return those elements in the correct, indexable order.
-        return [p for p in self._get_elements_by_nstypes(self.odt, ("h", "p"))]
+        if self._all_paragraphs is None:
+            # NOTE: self.odt.body.headers and .paragraphs exist, but they will not
+            # return those elements in the correct, indexable order.
+            self._all_paragraphs = [
+                p for p in self._get_elements_by_nstypes(self.odt, ("h", "p"))
+            ]
+        return self._all_paragraphs
 
     @property
     def all_spans(self):
         return self.odt.body.spans
-
-    @property
-    def all_styles(self):
-        if self._all_styles is None:
-            styles = []
-            for p in self.paragraphs:
-                if p.style not in styles:
-                    styles.append(p.style)
-            self._all_styles = styles
-        return self._all_styles
 
     @property
     def name(self):
@@ -73,33 +71,29 @@ class OdtChapter:
     @property
     def paragraphs(self):
         """Return list of user-editable paragraphs."""
-        paragraphs = []
-        for node in self.all_paragraphs:
-            if len(node.text_recursive) == 0:
-                logging.debug(
-                    f"Skipping non-text node: {node.tag}:{node.text_recursive}"
-                )
-                continue
-            # Ignore nodes with attachment-only "text".
-            if (
-                re.sub(
-                    r"\(Pictures/[0-9A-F]+\.[a-zA-Z1-9]{2,}\)",
-                    "",
-                    node.text_recursive,
-                )
-                == ""
-            ):
-                logging.debug(
-                    f"Skipping node w/ no valid children: {node.tag}/{node.children}={node.text_recursive}"
-                )
-                continue
-            if node.style not in self.styles:
-                logging.debug(
-                    f"Skipping node w/ excluded style: {node.tag}:{node.style}"
-                )
-                continue
-            paragraphs.append(OdtParagraph(node, chapter=self))
-        return paragraphs
+
+        if self._paragraphs is None:
+            paragraphs = []
+            for node in self.all_paragraphs:
+                if len(node.text_recursive) == 0:
+                    logging.debug(
+                        f"Skipping non-text node: {node.tag}:{node.text_recursive}"
+                    )
+                    continue
+                # Ignore nodes with attachment-only "text".
+                if self.RE_PIC.sub("", node.text_recursive) == "":
+                    logging.debug(
+                        f"Skipping node w/ no valid children: {node.tag}/{node.children}={node.text_recursive}"
+                    )
+                    continue
+                if get_node_doc_style(node, self.odt) not in self.styles:
+                    logging.debug(
+                        f"Skipping node w/ excluded style: {node.tag}:{node.style}"
+                    )
+                    continue
+                paragraphs.append(OdtParagraph(node, chapter=self))
+            self._paragraphs = paragraphs
+        return self._paragraphs
 
     @property
     def sfm_ref(self):
@@ -147,25 +141,19 @@ class OdtChapter:
             nodes = [n for n in self.all_paragraphs]
             nodes.extend([n for n in self.all_spans])
             for node in nodes:
-                # Ignore spans with no style info.
+                # Ignore items with no style info.
                 if node.style is None:
                     continue
-                # Ignore spans with no text.
+                # Ignore items with no text.
                 if len(node.text_recursive) == 0:
                     continue
-                if node.style in self.sfm_ref.keys():
-                    styles[node.style] = self.sfm_ref.get(node.style)
+                # Get node's Document style (many nodes have a Content style
+                # defined instead.)
+                style = get_node_doc_style(node, self.odt)
+                if style in self.sfm_ref.keys():
+                    styles[style] = self.sfm_ref.get(style)
             self._styles = styles
         return self._styles
-
-    def all_styles_and_paragraphs(self):
-        # raise NotImplementedError
-        data = []
-        for p_node in self.all_paragraphs:
-            data.append(f'[{p_node.style}] "{p_node.text_recursive}"')
-            for s in p_node.spans:
-                data.append(f'> [{s.style}] "{s.inner_text}"|"{s.tail}"')
-        print("\n".join(data))
 
     def _get_elements_by_nstypes(self, node, nstypes, accumulator=None):
         """Return valid "header" and "paragraph" elements in document order to
@@ -234,23 +222,37 @@ class OdtToc(OdtChapter):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Convert "normal" SFMs to Intro-specific SFMs.
-        for pstyle, sfm in self.sfm_ref.items():
-            sfm_intro = self.to_intro_sfm(sfm)
-            self.sfm_ref[pstyle] = sfm_intro
 
-    @classmethod
-    def to_intro_sfm(cls, sfm):
-        # Strip any #s from SFM tags.
-        # sfm_plain = re.sub(cls.RE_LETTER_BEFORE_DIGITS, "", sfm)
-        sfm_plain = cls.RE_LETTER_BEFORE_DIGITS.sub("", sfm)
-        if sfm_plain in cls.INTRO_MARKERS:
-            # Get trailing digits.
-            sfm_digits = sfm.split(sfm_plain)[1]
-            # Add intro "i" in front of marker.
-            return f"\\i{sfm_plain[1:]}{sfm_digits}"
-        else:
-            return sfm
+    def to_sfm(self):
+        # Initialize data.
+        out_text = list()
+        # Add lines from ODT document.
+        for paragraph in self.paragraphs:
+            # logging.debug(f"{paragraph.text_recursive[:30]=}")
+            # Ignore paragraphs with no style info.
+            if paragraph.style is None:
+                continue
+            # Ignore paragraphs with no text.
+            if len(paragraph.text_recursive) == 0:
+                continue
+
+            sfm_paragraph = SfmParagraph(paragraph.to_sfm())
+
+            sfm_marker_plain = self.RE_LETTER_BEFORE_DIGITS.sub(
+                "", sfm_paragraph.marker
+            )
+            logging.debug(f"{sfm_marker_plain=}")
+            if sfm_marker_plain in self.INTRO_MARKERS:
+                # Get trailing digits.
+                sfm_digits = sfm_paragraph.marker.split(sfm_marker_plain)[1]
+                # Add intro "i" in front of marker.
+                updated_marker = f"\\i{sfm_marker_plain[1:]}{sfm_digits}"
+                logging.debug(f"{updated_marker=}")
+                sfm_paragraph.marker = updated_marker
+
+            out_text.extend(sfm_paragraph.sfm_raw.splitlines())
+
+        return "\n".join(out_text)
 
 
 class OdtBook:
@@ -297,8 +299,8 @@ class OdtBook:
         )
         for lf in chapter_files:
             chapter = OdtChapter(lf)
-            if chapter.number == 0:
-                chapter = OdtToc(lf)
+            # if chapter.number == 0:
+            #     chapter = OdtToc(lf)
             chapters[chapter.number] = chapter
         return chapters
 
@@ -321,28 +323,23 @@ class OdtBook:
 
         # Add lines from given chapter numbers.
         if chapters == "all":
-            chs = self.chapters
+            chs = self.chapters.copy()
         else:
             ch_nums = chapters.split(",")
             ch_nums = [int(n) for n in ch_nums]
-            chs = [self.chapters[i] for i in ch_nums]
-        for chapter in chs:
-            out_text.extend(chapter.to_sfm().split("\n"))
+            # chs = [self.chapters.get(i) for i in ch_nums]
+            chs = {i: self.chapters.get(i) for i in ch_nums}
+        logging.debug(f"{chs=}")
+        # Handle TOC chapter.
+        toc = chs.pop(0)
+        if toc:
+            out_text.extend(toc.to_sfm().splitlines())
+        # Handle remaining chapters.
+        for n, chapter in chs.items():
+            logging.debug(f"{len(self.chapters)=}")
+            # logging.debug(f"{self.chapters=}")
+            logging.debug(f"{chapter=}")
+            out_text.extend(chapter.to_sfm().splitlines())
         # Add final newline.
         out_text.append("")
         return "\n".join(out_text)
-
-
-def print_styles(book):
-    all_styles = []
-    for chapter in book.chapters:
-        print(chapter.name)
-        for i, style in enumerate(sorted(chapter.styles)):
-            if style not in all_styles:
-                all_styles.append(style)
-            print(f" {i:2d}: {style}")
-        print()
-
-    print("All styles:")
-    for i, style in enumerate(all_styles):
-        print(f" {i:2d}: {style}")
