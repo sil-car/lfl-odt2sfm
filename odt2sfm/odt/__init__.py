@@ -91,9 +91,8 @@ class OdtChapter:
                         f"Skipping node w/ excluded style: {node.tag}:{node.style}"
                     )
                     continue
-                # FIXME: This should only exclude a node if it has no text of
-                # its own and if it has at least one paragraph among its
-                # descendants.
+                # Ignore nodes that have no text of their own and have at least
+                # one paragraph among their descendants.
                 if (
                     not node.text
                     and not node.tail
@@ -103,9 +102,6 @@ class OdtChapter:
                         f"Skipping node whose text comes from a descendent node: {node.tag}:{node.children}"
                     )
                     continue
-                # if node.text_recursive and not node.text and not node.tail:
-                #     # logging.debug(f"{node.text=}; {node.tail=}")
-                #     # logging.debug(f"{node.children=}")
                 paragraphs.append(OdtParagraph(node, chapter=self))
             self._paragraphs = paragraphs
         return self._paragraphs

@@ -137,32 +137,34 @@ class OdtParagraph(OdtElement):
         """Recurively check the node and its child nodes for those that have
         updatable content."""
 
+        # FIXME: 1st "paragraph" after "Image 1-1" is not exporting for any of
+        # the lessons. Continue reviewing from L05.
         if accumulator is None:
             accumulator = list()
 
         # We re-interpret text as a "child" for easier looping.
         if node.text:
+            # Skip space-only nodes.
             if node.text.replace(" ", "").replace("\t", "") != "":
                 if isinstance(node, Span):
-                    if "Quel" in node.text:
-                        logging.debug(
-                            f"quel: {node.tag}|{node.text}|{node.text_recursive}|"
-                        )
                     child = OdtSpan(node, chapter=self.chapter)
                 else:
                     child = OdtText(node.text, node, chapter=self.chapter)
                 accumulator.append(child)
             else:
-                # logging.debug(f"{node.__dir__()}")
                 logging.debug(f"Excluding node w/ only space from: {node.tag}")
 
-        # Evaluate node children.
-        for child_node in node.children:
-            accumulator = self._get_children_from_node(child_node, accumulator)
+        # Evaluate node children if not a Span node, b/c "inner_text" is taken
+        # from Span node, so child nodes texts' are already incorporated.
+        if node.tag != "text:span":
+            for child_node in node.children:
+                accumulator = self._get_children_from_node(child_node, accumulator)
 
         # As with text, we re-interpret any "tail" as a final child node.
         if node.tail:
             if node.tail.replace(" ", "").replace("\t", "") != "":
+                logging.debug(f"{node.tail=}")
+                logging.debug(f"{node.parent=}")
                 accumulator.append(
                     OdtText(node.tail, node, tail=True, chapter=self.chapter)
                 )
@@ -175,10 +177,9 @@ class OdtParagraph(OdtElement):
         out_text = list()
         sfm = self.chapter.sfm_ref.get(self.style)
         line = f"{sfm} "
-        # logging.debug(f"{[f'{c.__class__.__name__}|{c.text}|' for c in self.children]}")
         prev_child = None
         for child in self.children:
-            logging.debug(f"{line=}")
+            # logging.debug(f"{line=}")
             if isinstance(child, OdtText):
                 # Add double-space when following another Text.
                 if isinstance(prev_child, OdtText):
