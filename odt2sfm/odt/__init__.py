@@ -6,7 +6,7 @@ from odfdo import Document
 
 from ..base import get_timestamp
 from ..sfm.elements import SfmParagraph
-from .base import get_node_doc_style, node_has_paragraph_descendent
+from .base import get_node_doc_style, node_has_paragraph_descendent_with_text
 from .elements import OdtParagraph
 
 
@@ -75,33 +75,33 @@ class OdtChapter:
         if self._paragraphs is None:
             paragraphs = []
             for node in self.all_paragraphs:
-                if len(node.text_recursive) == 0:
-                    logging.debug(
-                        f"Skipping non-text node: {node.tag}:{node.text_recursive}"
-                    )
+                node_all_text = node.text_recursive
+                node_name = f"{node.tag}:{node.style}"
+                node_desc = f"{node_name}={node_all_text[:30]}..."
+                if len(node_all_text) == 0:
+                    logging.info(f"Skipping non-text node: {node_desc}")
                     continue
                 # Ignore nodes with attachment-only "text".
-                if self.RE_PIC.sub("", node.text_recursive) == "":
-                    logging.debug(
-                        f"Skipping node w/ no valid children: {node.tag}/{node.children}={node.text_recursive}"
+                if self.RE_PIC.sub("", node_all_text) == "":
+                    logging.info(
+                        f"Skipping node w/ no valid children: {node_name}/{node.children}={node_all_text[:30]}"
                     )
                     continue
                 if get_node_doc_style(node, self.odt) not in self.styles:
-                    logging.debug(
-                        f"Skipping node w/ excluded style: {node.tag}:{node.style}"
-                    )
+                    logging.info(f"Skipping node w/ ignored style: {node_desc}")
                     continue
                 # Ignore nodes that have no text of their own and have at least
-                # one paragraph among their descendants.
+                # one paragraph with text among their descendants.
                 if (
                     not node.text
                     and not node.tail
-                    and node_has_paragraph_descendent(node)
+                    and node_has_paragraph_descendent_with_text(node)
                 ):
-                    logging.debug(
-                        f"Skipping node whose text comes from a descendent node: {node.tag}:{node.children}"
+                    logging.info(
+                        f"Skipping node whose text comes from a descendent paragraph: {node_name}/{node.children}={node_all_text[:30]}"
                     )
                     continue
+
                 paragraphs.append(OdtParagraph(node, chapter=self))
             self._paragraphs = paragraphs
         return self._paragraphs
@@ -134,15 +134,21 @@ class OdtChapter:
     def styles_reference_file(self):
         if self._styles_reference_file is None:
             filename = "styles-reference.txt"
-            # Check ODT file's parent folder.
             dir_path = self.file_path.parent
-            ref_file = dir_path / f"{self.file_path.stem}.{filename}"
-            if not ref_file.is_file():
-                # Check ODT file's parent's parent folder.
-                ref_file = dir_path.parent / filename
-                if not ref_file.is_file():
-                    raise ValueError("No valid styles-reference.txt found.")
-            self._styles_reference_file = ref_file
+            paths = (
+                # ODT file's parent folder for file with same stem.
+                dir_path / f"{self.file_path.stem}.{filename}",
+                # ODT file's parent folder for general file.
+                dir_path / filename,
+                # ODT file's parent's parent folder.
+                dir_path.parent / filename,
+            )
+            for ref_file in paths:
+                if ref_file.is_file():
+                    self._styles_reference_file = ref_file
+                    break
+            if not self._styles_reference_file:
+                raise ValueError("No valid styles-reference.txt found.")
             logging.debug(f"Using styles reference file: {self._styles_reference_file}")
         return self._styles_reference_file
 
@@ -202,7 +208,8 @@ class OdtChapter:
             out_text.append(f"\\c {self.number}")
         # Add lines from ODT document.
         for paragraph in self.paragraphs:
-            # logging.debug(f"{paragraph.text_recursive[:30]=}")
+            # if "Limo" in paragraph.text_recursive:
+            #     logging.debug(f"{paragraph.text_recursive[:30]=}")
             # Ignore paragraphs with no style info.
             if paragraph.style is None:
                 continue
@@ -343,7 +350,7 @@ class OdtBook:
             ch_nums = [int(n) for n in ch_nums]
             # chs = [self.chapters.get(i) for i in ch_nums]
             chs = {i: self.chapters.get(i) for i in ch_nums}
-        logging.debug(f"{chs=}")
+
         # Handle TOC chapter.
         toc = chs.pop(0)
         if toc:

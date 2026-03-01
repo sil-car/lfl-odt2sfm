@@ -117,9 +117,15 @@ class OdtSpan(OdtElement):
 
 
 class OdtParagraph(OdtElement):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._children = None
+
     @property
     def children(self):
-        return self._get_children_from_node(self.node)
+        if self._children is None:
+            return self._get_children_from_node(self.node)
+        return self._children
 
     @property
     def spans(self):
@@ -133,12 +139,16 @@ class OdtParagraph(OdtElement):
     def style(self):
         return get_node_doc_style(self.node, self.chapter.odt)
 
-    def _get_children_from_node(self, node, accumulator=None):
+    def _get_children_from_node(self, node, accumulator=None, depth=0):
         """Recurively check the node and its child nodes for those that have
         updatable content."""
 
-        # FIXME: 1st "paragraph" after "Image 1-1" is not exporting for any of
-        # the lessons. Continue reviewing from L05.
+        # Only allow recursing one level deeper than original paragraph. This
+        # avoids "collecting" text from nested paragraphs.
+        if depth > 1:
+            return accumulator
+        depth += 1
+
         if accumulator is None:
             accumulator = list()
 
@@ -158,13 +168,13 @@ class OdtParagraph(OdtElement):
         # from Span node, so child nodes texts' are already incorporated.
         if node.tag != "text:span":
             for child_node in node.children:
-                accumulator = self._get_children_from_node(child_node, accumulator)
+                accumulator = self._get_children_from_node(
+                    child_node, accumulator, depth=depth
+                )
 
         # As with text, we re-interpret any "tail" as a final child node.
         if node.tail:
             if node.tail.replace(" ", "").replace("\t", "") != "":
-                logging.debug(f"{node.tail=}")
-                logging.debug(f"{node.parent=}")
                 accumulator.append(
                     OdtText(node.tail, node, tail=True, chapter=self.chapter)
                 )

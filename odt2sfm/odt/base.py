@@ -22,15 +22,15 @@ def get_node_doc_style(node, document):
     return style
 
 
-def node_has_paragraph_descendent(node):
+def node_has_paragraph_descendent_with_text(node):
     qnames = ("text:h", "text:p")
 
-    def node_contains_paragraph(n):
+    def node_contains_paragraph_with_text(n):
         for c in n.children:
             # logging.debug(f"Checking node tag: {c.tag}")
-            if c.tag in qnames:
+            if c.tag in qnames and (c.text or c.tail):
                 return True
             else:
-                return node_contains_paragraph(c)
+                return node_contains_paragraph_with_text(c)
 
-    return node_contains_paragraph(node)
+    return node_contains_paragraph_with_text(node)
