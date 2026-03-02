@@ -14,11 +14,15 @@ def get_node_doc_style(node, document):
         if content_style:
             break
     if content_style:
-        logging.info(f'Getting parent (document) style of "{node.style}"')
+        # logging.info(f'Getting parent (document) style of "{node.style}"')
         doc_style = content_style.parent_style
         if doc_style:
-            logging.debug(f'Parent style of "{node.style}" is "{doc_style}"')
+            logging.info(
+                f'Parent (document) style of content style "{node.style}" is "{doc_style}"'
+            )
             style = doc_style
+        else:
+            logging.warning(f'Content style "{node.style}" has no parent style.')
     return style
 
 
