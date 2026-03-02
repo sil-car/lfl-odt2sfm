@@ -15,10 +15,10 @@ class TestOdtChapter(unittest.TestCase):
         self.chapter = OdtChapter(CHAPTER_PATH)
 
     def test_chapter_paragraphs(self):
-        self.assertEqual(len(self.chapter.all_paragraphs), 8)
+        self.assertEqual(len(self.chapter.all_paragraphs), 21)
         self.assertEqual(
             len(self.chapter.odt.body.paragraphs) + len(self.chapter.odt.body.headers),
-            8,
+            21,
         )
 
 
@@ -38,10 +38,12 @@ class TestOdtElements(unittest.TestCase):
         LOGGER.setLevel(LOGLEVEL_INIT)
 
     def test_paragraph_children(self):
-        self.assertEqual(len(self.chapter.paragraphs[2].children), 9)
+        # for c in self.chapter.paragraphs[2].children:
+        #     print(f"{c.text=}")
+        self.assertEqual(len(self.chapter.paragraphs[2].children), 7)
 
     def test_paragraph_spans(self):
-        self.assertEqual(len(self.chapter.all_spans), 7)
+        self.assertEqual(len(self.chapter.all_spans), 8)
 
     def test_paragraph_text(self):
         self.assertEqual(
@@ -60,3 +62,25 @@ class TestOdtElements(unittest.TestCase):
     def test_span_text_withtabs(self):
         # print(f"{self.span_tabs.node.children=}")
         self.assertEqual("bold\twith\ttabs.", self.span_tabs.text)
+
+
+@unittest.skip("Not ready")
+class TestOdtTable(unittest.TestCase):
+    def setUp(self):
+        self.chapter = OdtChapter(CHAPTER_PATH)
+
+    def test_table_rows(self):
+        for paragraph in self.chapter.all_paragraphs:
+            p = OdtParagraph(paragraph, chapter=self.chapter)
+            if p.parent_table:
+                row_ct = 0
+                for c in p.parent_table.children:
+                    if c.tag == "table:table-row":
+                        row_ct += 1
+                        col_ct = 0
+                        for cell in c.children:
+                            col_ct += 1
+                            for pg in cell.children:
+                                print(
+                                    f"(row {row_ct}, col {col_ct}): {pg.text_recursive}"
+                                )

@@ -98,6 +98,9 @@ class OdtText(OdtElement):
 
 
 class OdtSpan(OdtElement):
+    """A "span" corresponds to the SFM designation of character-level markers;
+    e.g. verses, bold, table columns, etc."""
+
     @property
     def style(self):
         return self.node.style
@@ -117,9 +120,14 @@ class OdtSpan(OdtElement):
 
 
 class OdtParagraph(OdtElement):
+    """A "paragraph" according to the SFM designation, where all markers are
+    either paragraph markers or character markers. This can be a paragraph, a
+    heading, a table row, etc."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._children = None
+        self._parent_table = None
 
     @property
     def children(self):
@@ -138,6 +146,13 @@ class OdtParagraph(OdtElement):
     @property
     def style(self):
         return get_node_doc_style(self.node, self.chapter.odt)
+
+    @property
+    def parent_table(self):
+        if self._parent_table is None and self.node.parent.tag.startswith("table"):
+            # Parent of node is Cell, whose parent is Row, whose parent is Table.
+            self._parent_table = self.node.parent.parent.parent
+        return self._parent_table
 
     def _get_children_from_node(self, node, accumulator=None, depth=0):
         """Recurively check the node and its child nodes for those that have

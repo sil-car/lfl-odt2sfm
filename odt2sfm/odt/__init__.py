@@ -101,6 +101,8 @@ class OdtChapter:
                         f"Skipping node whose text comes from a descendent paragraph: {node_name}/{node.children}={node_all_text[:30]}"
                     )
                     continue
+                # TODO: If node is a table cell paragraph, create/update an
+                # OdtParagraph object and/or its children.
 
                 paragraphs.append(OdtParagraph(node, chapter=self))
             self._paragraphs = paragraphs
