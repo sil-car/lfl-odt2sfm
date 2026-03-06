@@ -366,7 +366,7 @@ class OdtBook:
 
         out_text.append(f'\\id {book_id} "{self.name}", Sango [sag] translation')
         out_text.append(
-            f'\\rem Initial import to SFM using Python module "odt2sfm" (https://github.com/sil-car/lfl-odt2sfm) on {self.timestamp()}'
+            f'\\rem Initial import to SFM by nate_marti@sil.org using Python module "odt2sfm" (https://github.com/sil-car/lfl-odt2sfm) on {self.timestamp()}'
         )
         out_text.append("\\usfm 3.0")
 
