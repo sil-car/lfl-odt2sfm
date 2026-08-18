@@ -11,7 +11,7 @@ def show_content(content, all=False):
         # Skip duplicated "English translation" paragraphs.
         if "english_20_translation" in s.lower():
             continue
-        if not all:
+        if not all:  # noqa: SIM102
             # Skip paragraphs whose text is identical to the previous paragraph.
             if str(t) == str(t_last):
                 continue
@@ -31,7 +31,3 @@ def main():
             print(
                 f"{page.name}/{footer.tag}/{paragraph.tag}:{paragraph.text_recursive}"
             )
-
-
-if __name__ == "__main__":
-    main()

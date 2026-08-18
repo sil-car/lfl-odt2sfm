@@ -157,7 +157,7 @@ class SfmText(SfmElement):
 
     @property
     def children(self):
-        return list()
+        return []
 
     @property
     def marker(self):
@@ -220,7 +220,7 @@ class SfmParagraph(SfmElement):
         if self._text is None:
             text = ""
             for i, c in enumerate(self.children):
-                if hasattr(c, "end_marker") and c.end_marker is not None:
+                if hasattr(c, "end_marker") and c.end_marker is not None:  # noqa: SIM114
                     text += f"{c.text}"
                 elif i == len(self.children) - 1:  # no space after last child
                     text += f"{c.text}"

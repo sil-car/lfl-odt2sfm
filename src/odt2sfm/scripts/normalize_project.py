@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
-
 import argparse
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from odt2sfm import normalize
 
@@ -41,10 +36,6 @@ def main():
     args = get_args()
     form = args.FORM[0]
     project = args.PROJECT[0]
-    files = sorted((f for f in project.iterdir() if f.suffix.lower() == ".sfm"))
+    files = sorted(f for f in project.iterdir() if f.suffix.lower() == ".sfm")
     for f in files:
         normalize.normalize_file(form, f, backup=args.backup)
-
-
-if __name__ == "__main__":
-    main()

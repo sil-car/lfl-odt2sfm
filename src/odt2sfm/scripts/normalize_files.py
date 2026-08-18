@@ -1,11 +1,6 @@
-#!/usr/bin/env python3
-
 import argparse
 import os
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from odt2sfm import normalize
 
@@ -42,7 +37,3 @@ def main():
     args = get_args()
     for f in args.FILE:
         normalize.normalize_file(args.FORM[0], f, backup=args.backup)
-
-
-if __name__ == "__main__":
-    main()

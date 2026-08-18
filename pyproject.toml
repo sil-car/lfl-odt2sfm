@@ -1,0 +1,28 @@
+[build-system]
+requires = ["flit_core <5"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "odt2sfm"
+description = "Convert ODT documents to SFM text and vice versa."
+readme = "README.md"
+authors = [{name = "Nate Marti", email = "nate_marti@sil.org"}]
+dependencies = [
+    "odfdo",
+]
+license = "MIT"
+requires-python = ">=3.12"
+dynamic = ["version"]
+
+[project.scripts]
+odt2sfm = "odt2sfm.scripts.convert:main"
+odt2sfm-normalize-files = "odt2sfm.scripts.normalize_files:main"
+odt2sfm-normalize-project = "odt2sfm.scripts.normalize_project:main"
+odt2sfm-read-odt = "odt2sfm.scripts.read_odt:main"
+odt2sfm-save-odt-as = "odt2sfm.scripts.save_odt_as:main"
+
+# [tool.flit.external-data]
+# directory = "data"
+
+# [tool.ruff.lint]
+# ignore = ["I001"]

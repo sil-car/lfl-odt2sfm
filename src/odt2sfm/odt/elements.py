@@ -1,8 +1,8 @@
-import logging
 import unicodedata
 
 from odfdo import Element
 
+from .. import logger
 from ..base import (
     SFM_TEXT_SEP,
     do_paratext_replacements,
@@ -191,8 +191,8 @@ class OdtParagraph(OdtElement):
     @property
     def children(self):
         if self._children is None:
-            logging.info(f'Getting children for paragraph "{self}"')
-            logging.debug(f"{self.node.children=}")
+            logger.info(f'Getting children for paragraph "{self}"')
+            logger.debug(f"{self.node.children=}")
             return self._get_children_from_node(self.node)
         return self._children
 
@@ -221,7 +221,7 @@ class OdtParagraph(OdtElement):
         depth += 1
 
         if accumulator is None:
-            accumulator = list()
+            accumulator = []
 
         # We re-interpret text as a "child" for easier looping.
         if node.tag in ("text:a", "text:span"):
@@ -232,7 +232,7 @@ class OdtParagraph(OdtElement):
                     child = OdtSpan(node, chapter=self.chapter)
                     accumulator.append(child)
                 else:
-                    logging.info(f"Excluding node w/ only space from: {node.tag}")
+                    logger.info(f"Excluding node w/ only space from: {node.tag}")
         else:
             if node.text:
                 # Skip space-only nodes.
@@ -240,7 +240,7 @@ class OdtParagraph(OdtElement):
                     child = OdtText(node.text, node, chapter=self.chapter)
                     accumulator.append(child)
                 else:
-                    logging.info(f"Excluding node w/ only space from: {node.tag}")
+                    logger.info(f"Excluding node w/ only space from: {node.tag}")
 
         # Evaluate node children if not a Span node, b/c "inner_text" is taken
         # from Span node, so child nodes texts' are already incorporated.
@@ -257,21 +257,21 @@ class OdtParagraph(OdtElement):
                     OdtText(node.tail, node, tail=True, chapter=self.chapter)
                 )
             else:
-                logging.info(f"Excluding tail w/ only space from: {node.tag}")
+                logger.info(f"Excluding tail w/ only space from: {node.tag}")
 
         return accumulator
 
     def to_sfm(self, normalization_mode):
-        logging.debug(f'Generating SFM output for "{self}"')
-        out_text = list()
+        logger.debug(f'Generating SFM output for "{self}"')
+        out_text = []
         sfm = self.sfm_marker
         line = f"{sfm} "
         prev_child = None
         for child in self.children:
-            # logging.debug(f"{line=}")
+            # logger.debug(f"{line=}")
             if isinstance(child, OdtText) and isinstance(prev_child, OdtText):
                 # Add space-underscore when following another Text.
-                logging.debug(
+                logger.debug(
                     f"OdtText following other OdtText: {prev_child.text=}; {child.text=}"
                 )
                 line += SFM_TEXT_SEP
@@ -285,7 +285,7 @@ class OdtParagraph(OdtElement):
             # Normalize characters.
             line = normalize_text(normalization_mode, line)
             lines = line.split("\n")
-            # logging.debug(f"{lines=}")
+            # logger.debug(f"{lines=}")
             out_text.extend(lines)
 
         return "\n".join(out_text)
@@ -295,18 +295,18 @@ class OdtParagraph(OdtElement):
         and update their data if needed."""
         # Only proceed if overall paragraph text is different.
         if self.text == normalize_text(normalization_mode, sfm_paragraph.text):
-            logging.debug(f"Skipping unchanged paragraph: {self.intro}")
+            logger.debug(f"Skipping unchanged paragraph: {self.intro}")
             return
 
         extra_sfm_items = verify_paragraph_children_count(sfm_paragraph, self)
         if extra_sfm_items < 0:
-            logging.error("Can't update text: not enough SFM paragraph child items.")
+            logger.error("Can't update text: not enough SFM paragraph child items.")
             return
 
-        logging.debug(
+        logger.debug(
             f"P children: {[f'{c.__class__.__name__}:{c.text}' for c in self.children]}"
         )
-        logging.debug(
+        logger.debug(
             f"XML children: {[f'{c.text=}; {c.tail=}' for c in self.node.children]}"
         )
         sfm_children = [c for c in sfm_paragraph.children]
@@ -314,7 +314,7 @@ class OdtParagraph(OdtElement):
             sfm_item = sfm_children[i]
             sfm_item_normalized_text = normalize_text(normalization_mode, sfm_item.text)
             if odt_item.text == sfm_item_normalized_text:
-                logging.debug(f"Skipping unchanged paragraph child: {odt_item.intro}")
+                logger.debug(f"Skipping unchanged paragraph child: {odt_item.intro}")
                 continue
             item = "Unknown"
             tail = ""
@@ -324,7 +324,7 @@ class OdtParagraph(OdtElement):
                     tail = " tail"
             elif isinstance(odt_item, OdtSpan):
                 item = "OdtSpan"
-            logging.info(
+            logger.info(
                 f'Updating {item}{tail} "{odt_item.text}" to "{sfm_item_normalized_text}"'
             )
             odt_item.text = sfm_item_normalized_text
@@ -337,7 +337,7 @@ class OdtTableRow(OdtParagraph):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._children = list()
+        self._children = []
         self._parent_table = None
 
     # TODO: Set correct SFM marker for paragraph.
@@ -374,4 +374,4 @@ class OdtTableRow(OdtParagraph):
             e.text = ""
             children.insert(0, e)
         self.children.extend(children)
-        logging.debug(f"{self.children=}")
+        logger.debug(f"{self.children=}")

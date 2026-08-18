@@ -1,4 +1,4 @@
-import logging
+from .. import logger
 
 
 def get_node_doc_style(node, document):
@@ -14,15 +14,15 @@ def get_node_doc_style(node, document):
         if content_style:
             break
     if content_style:
-        # logging.info(f'Getting parent (document) style of "{node.style}"')
+        # logger.info(f'Getting parent (document) style of "{node.style}"')
         doc_style = content_style.parent_style
         if doc_style:
-            logging.info(
+            logger.info(
                 f'Parent (document) style of content style "{node.style}" is "{doc_style}"'
             )
             style = doc_style
         else:
-            logging.warning(f'Content style "{node.style}" has no parent style.')
+            logger.warning(f'Content style "{node.style}" has no parent style.')
     return style
 
 
@@ -56,7 +56,7 @@ def node_has_paragraph_descendent_with_text(node):
 
     def node_contains_paragraph_with_text(n):
         for c in n.children:
-            # logging.debug(f"Checking node tag: {c.tag}")
+            # logger.debug(f"Checking node tag: {c.tag}")
             if c.tag in qnames and (c.text or c.tail):
                 return True
             else:

@@ -1,6 +1,7 @@
-import logging
 import unicodedata
-from datetime import datetime
+from datetime import UTC, datetime
+
+from . import logger
 
 SFM_PLACEHOLDERS = {
     "~": "\u00a0",
@@ -10,7 +11,7 @@ SFM_TEXT_SEP = " _"
 
 
 def get_timestamp():
-    return datetime.today().strftime("%Y-%m-%d")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
 def normalize_text(normalization_form, text):
@@ -37,8 +38,8 @@ def verify_paragraph_count(sfm_chapter, odt_chapter):
     len_odt = len(odt_ps)
     if len_sfm != len_odt:
         for i, (p1, p2) in enumerate(zip(sfm_ps, odt_ps)):
-            logging.error(f"{i}:SFM: {p1}")
-            logging.error(f"{i}:ODT: {p2}")
+            logger.error(f"{i}:SFM: {p1}")
+            logger.error(f"{i}:ODT: {p2}")
         raise ValueError(
             f"Paragraph counts differ for ch. {sfm_chapter.number}; SFM: {len_sfm}; ODT: {len_odt}"
         )
@@ -50,12 +51,12 @@ def verify_paragraph_children_count(sfm_paragraph, odt_paragraph):
     len_sfm = len(sfm_children)
     len_odt = len(odt_children)
     if len_sfm != len_odt:
-        logging.warning(
+        logger.warning(
             f"Unmatched children for ODT ({len_odt}) & SFM ({len_sfm}): {odt_paragraph.intro}|{sfm_paragraph.intro}"
         )
         for i, (c1, c2) in enumerate(zip(sfm_children, odt_children)):
-            logging.info(f"{i}:SFM: {c1.text}")
-            logging.info(f"{i}:ODT: {c2.text}")
+            logger.info(f"{i}:SFM: {c1.text}")
+            logger.info(f"{i}:ODT: {c2.text}")
     return len_sfm - len_odt
 
 

@@ -1,4 +1,3 @@
-import logging
 import unittest
 from pathlib import Path
 
@@ -7,8 +6,6 @@ from odt2sfm.odt.base import get_node_table, get_node_table_pos
 from odt2sfm.odt.elements import OdtParagraph, OdtSpan
 
 CHAPTER_PATH = Path(__file__).parent / "data" / "chapter.odt"
-LOGGER = logging.getLogger()
-LOGLEVEL_INIT = LOGGER.level
 
 
 class TestOdtChapter(unittest.TestCase):
@@ -34,9 +31,6 @@ class TestOdtElements(unittest.TestCase):
         )
         self.span_bold = OdtSpan(self.chapter.all_spans[2])
         self.span_tabs = OdtSpan(self.chapter.all_spans[3])
-
-    def tearDown(self):
-        LOGGER.setLevel(LOGLEVEL_INIT)
 
     def test_paragraph_children(self):
         # for c in self.chapter.paragraphs[2].children:

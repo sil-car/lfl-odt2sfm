@@ -1,6 +1,6 @@
-import logging
 from pathlib import Path
 
+from . import logger
 from .base import get_timestamp
 from .odt import OdtBook, OdtChapter
 from .sfm import SfmBook, SfmChapter
@@ -58,13 +58,13 @@ class OdtToSfm(Conversion):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logging.info(f"Evaluating source path: {self.source_path}")
+        logger.info(f"Evaluating source path: {self.source_path}")
         self.odt_book = OdtBook(
             self.source_path,
             filename=self.destination_path.stem,
             normalization_mode=self.normalization_mode,
         )
-        logging.info(f"Evaluating destination path: {self.destination_path}")
+        logger.info(f"Evaluating destination path: {self.destination_path}")
         self.sfm_book = SfmBook(self.destination_path)
 
     def run(self):
@@ -82,9 +82,9 @@ class SfmToOdt(Conversion):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logging.info(f"Evaluating source path: {self.source_path}")
+        logger.info(f"Evaluating source path: {self.source_path}")
         self.sfm_book = SfmBook(self.source_path)
-        logging.info(f"Evaluating destination path: {self.destination_path}")
+        logger.info(f"Evaluating destination path: {self.destination_path}")
         self.odt_book = OdtBook(
             self.destination_path, normalization_mode=self.normalization_mode
         )

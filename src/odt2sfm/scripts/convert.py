@@ -1,12 +1,10 @@
 import argparse
 import logging
-import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
-
-from odt2sfm.conversions import OdtToSfm, SfmToOdt
+from .. import logger
+from ..conversions import OdtToSfm, SfmToOdt
 
 
 def parse_args():
@@ -25,8 +23,8 @@ def parse_args():
         default="NFC",
         help="set character normalization mode for destination file(s)",
     )
-    parser.add_argument("source_path", type=Path, help="source file/dir")
-    parser.add_argument("destination_path", type=Path, help="destination file/dir")
+    parser.add_argument("source_path", type=Path, help="source file|dir")
+    parser.add_argument("destination_path", type=Path, help="destination file|dir")
     return parser.parse_args()
 
 
@@ -38,7 +36,6 @@ def main():
     loglevel = logging.INFO
     if args.debug:
         loglevel = logging.DEBUG
-    logger = logging.getLogger()
     logger.setLevel(loglevel)
 
     # Evaluate path args.
@@ -63,7 +60,8 @@ def main():
     logger_filepath.write_text("")  # truncate the file
     logger.addHandler(logfile_handler)
     logger.removeHandler(logger.handlers[0])
-    logging.info(f"Script start time: {datetime.now()}")
+    logger.info(f"Script start time: {datetime.now(tz=UTC)}")
+    logger.info(f"Conversion type: {conv.__name__}")
 
     # Run converion.
     c = conv(
@@ -72,7 +70,3 @@ def main():
         normalization_mode=args.normalization_mode,
     )
     c.run()
-
-
-if __name__ == "__main__":
-    main()

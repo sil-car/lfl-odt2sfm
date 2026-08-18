@@ -47,7 +47,7 @@ class SfmChapter:
 
         paragraphs = []
         for line in self.sfm_raw.splitlines():
-            if len(line) == 0:
+            if len(line) == 0:  # noqa: SIM114
                 continue
             elif line.startswith("\\c"):
                 continue
@@ -61,7 +61,7 @@ class SfmChapter:
     @property
     def odt_styles(self):
         if self._odt_styles is None:
-            styles = dict()
+            styles = {}
             ref_file = Path(__file__).parents[2] / "ref.txt"
             for line in ref_file.read_text().splitlines():
                 try:
