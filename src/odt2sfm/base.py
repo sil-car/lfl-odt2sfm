@@ -36,10 +36,9 @@ def verify_paragraph_count(sfm_chapter, odt_chapter):
     odt_ps = odt_chapter.paragraphs
     len_sfm = len(sfm_ps)
     len_odt = len(odt_ps)
+    for i, (p1, p2) in enumerate(zip(sfm_ps, odt_ps)):
+        logger.info(f"{i}: SFM: {p1.intro}; ODT: {p2.intro}")
     if len_sfm != len_odt:
-        for i, (p1, p2) in enumerate(zip(sfm_ps, odt_ps)):
-            logger.error(f"{i}:SFM: {p1}")
-            logger.error(f"{i}:ODT: {p2}")
         raise ValueError(
             f"Paragraph counts differ for ch. {sfm_chapter.number}; SFM: {len_sfm}; ODT: {len_odt}"
         )
@@ -55,8 +54,7 @@ def verify_paragraph_children_count(sfm_paragraph, odt_paragraph):
             f"Unmatched children for ODT ({len_odt}) & SFM ({len_sfm}): {odt_paragraph.intro}|{sfm_paragraph.intro}"
         )
         for i, (c1, c2) in enumerate(zip(sfm_children, odt_children)):
-            logger.info(f"{i}:SFM: {c1.text}")
-            logger.info(f"{i}:ODT: {c2.text}")
+            logger.info(f"{i}: SFM: {c1.intro}; ODT: {c2.intro}")
     return len_sfm - len_odt
 
 
@@ -69,5 +67,5 @@ def verify_sfm_markers(sfm_chapter, odt_chapter):
         marker = odt_chapter.styles.get(p.style)
         if marker != sfm:
             raise ValueError(
-                f'SFM marker ({sfm}) does not correspond to ODT style ({p.style}) for text "{p.text}"; expected: {marker}'
+                f'SFM marker ({sfm}; paragraph {i+1}) does not correspond to ODT style ({p.style}) for text "{p.text}|{sfm_paragraphs[i].text}"; expected: {marker}'
             )
