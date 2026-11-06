@@ -3,14 +3,14 @@ from pathlib import Path
 
 from odfdo import Document
 
-from .. import logger
-from ..base import (
+from odt2sfm import logger
+from odt2sfm.base import (
     SFM_ONLY_MARKERS,
     get_timestamp,
     verify_paragraph_count,
     verify_sfm_markers,
 )
-from .base import (
+from odt2sfm.odt.base import (
     get_node_doc_style,
     # get_node_row,
     # get_node_table,
@@ -18,7 +18,7 @@ from .base import (
     node_has_paragraph_descendent_with_text,
     # node_in_table,
 )
-from .elements import (
+from odt2sfm.odt.elements import (
     OdtParagraph,
     # OdtTableRow,
 )

@@ -2,15 +2,15 @@ import unicodedata
 
 from odfdo import Element
 
-from .. import logger
-from ..base import (
+from odt2sfm import logger
+from odt2sfm.base import (
     SFM_TEXT_SEP,
     do_paratext_replacements,
     normalize_text,
     verify_paragraph_children_count,
 )
-from ..sfm.base import SFM_SPAN_TYPES_NO_END_MARKER, get_sfm_type
-from .base import get_node_doc_style
+from odt2sfm.odt.base import get_node_doc_style
+from odt2sfm.sfm.base import SFM_SPAN_TYPES_NO_END_MARKER, get_sfm_type
 
 
 class OdtElement:

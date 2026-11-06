@@ -1,7 +1,7 @@
 import unicodedata
 from datetime import UTC, datetime
 
-from . import logger
+from odt2sfm import logger
 
 SFM_PLACEHOLDERS = {
     "~": "\u00a0",

@@ -1,6 +1,6 @@
 import re
 
-from ..base import SFM_TEXT_SEP, normalize_text, undo_paratext_replacements
+from odt2sfm.base import SFM_TEXT_SEP, normalize_text, undo_paratext_replacements
 
 
 class SfmElement:

@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from . import logger
-from .base import get_timestamp
-from .odt import OdtBook, OdtChapter
-from .sfm import SfmBook, SfmChapter
+from odt2sfm import logger
+from odt2sfm.base import get_timestamp
+from odt2sfm.odt import OdtBook, OdtChapter
+from odt2sfm.sfm import SfmBook, SfmChapter
 
 
 class Conversion:

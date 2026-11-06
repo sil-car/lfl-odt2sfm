@@ -3,13 +3,14 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import logger
-from ..conversions import OdtToSfm, SfmToOdt
+from odt2sfm import __version__, logger
+from odt2sfm.conversions import OdtToSfm, SfmToOdt
 
 
 def parse_args():
     prog = "odt2sfm"
     parser = argparse.ArgumentParser(prog=prog)
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--debug",
         action="store_true",

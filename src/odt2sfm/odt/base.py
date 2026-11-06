@@ -1,4 +1,4 @@
-from .. import logger
+from odt2sfm import logger
 
 
 def get_node_doc_style(node, document):

@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from .elements import SfmParagraph
+from odt2sfm.sfm.elements import SfmParagraph
 
 
 class SfmChapter:
