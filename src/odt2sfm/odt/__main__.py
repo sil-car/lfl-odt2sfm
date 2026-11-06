@@ -29,7 +29,5 @@ def odt_styles():
     log.debug(f"{doc.styles=}")
     for p in doc.all_paragraphs:
         doc_style = get_node_doc_style(p, doc.odt)
-        if p.style == doc_style:
-            print(f"[{p.style}] {p.text_recursive}")
-        else:
-            print(f"[{doc_style}] (skipped) {p.text_recursive}")
+        skipped = "(skipped) " if doc_style not in doc.styles else ""
+        print(f"[{doc_style}] {skipped}{p.text_recursive}")
