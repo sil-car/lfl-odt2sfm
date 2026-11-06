@@ -14,15 +14,21 @@ license = "MIT"
 requires-python = ">=3.12"
 dynamic = ["version"]
 
+[project.optional-dependencies]
+dev = [
+    "pyright",
+    "pytest>=7",
+    "pytest-cov",
+    "ruff",
+]
+
 [project.scripts]
-odt2sfm = "odt2sfm.scripts.convert:main"
+odt2sfm = "odt2sfm.__main__:main"
 odt2sfm-normalize-files = "odt2sfm.scripts.normalize_files:main"
 odt2sfm-normalize-project = "odt2sfm.scripts.normalize_project:main"
-odt2sfm-read-odt = "odt2sfm.scripts.read_odt:main"
-odt2sfm-save-odt-as = "odt2sfm.scripts.save_odt_as:main"
+odt2sfm-odt-styles = "odt2sfm.odt.__main__:odt_styles"
 
-# [tool.flit.external-data]
-# directory = "data"
-
-# [tool.ruff.lint]
-# ignore = ["I001"]
+[tool.pyright]
+venvPath = "."
+venv = "env"
+typeCheckingMode = "standard"

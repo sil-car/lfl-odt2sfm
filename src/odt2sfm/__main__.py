@@ -3,13 +3,17 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import logger
-from ..conversions import OdtToSfm, SfmToOdt
+from odt2sfm import __version__
+from odt2sfm.base import LOG_FORMAT
+from odt2sfm.conversions import OdtToSfm, SfmToOdt
+
+log = logging.getLogger("odt2sfm")
 
 
 def parse_args():
     prog = "odt2sfm"
     parser = argparse.ArgumentParser(prog=prog)
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -32,11 +36,6 @@ def main():
     # Get args.
     args = parse_args()
 
-    # Set loglevel for logfile.
-    loglevel = logging.INFO
-    if args.debug:
-        loglevel = logging.DEBUG
-    logger.setLevel(loglevel)
 
     # Evaluate path args.
     if args.source_path.suffix.lower() == ".sfm":
@@ -54,14 +53,16 @@ def main():
             )
         logger_filepath = args.destination_path / "odt2sfm-import.log"
 
-    # Add file handler to logger and remove console logger.
-    logfile_handler = logging.FileHandler(logger_filepath)
-    logfile_handler.setFormatter(logger.handlers[0].formatter)  # use console formatter
-    logger_filepath.write_text("")  # truncate the file
-    logger.addHandler(logfile_handler)
-    logger.removeHandler(logger.handlers[0])
-    logger.info(f"Script start time: {datetime.now(tz=UTC)}")
-    logger.info(f"Conversion type: {conv.__name__}")
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format=LOG_FORMAT,
+        filename=str(logger_filepath),
+        filemode="w",
+    )
+
+    # logger_filepath.write_text("")  # truncate the file
+    log.info(f"Script start time: {datetime.now(tz=UTC)}")
+    log.info(f"Conversion type: {conv.__name__}")
 
     # Run converion.
     c = conv(
