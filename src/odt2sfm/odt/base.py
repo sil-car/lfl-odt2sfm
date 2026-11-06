@@ -1,4 +1,6 @@
-from odt2sfm import logger
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def get_node_doc_style(node, document):
@@ -14,15 +16,15 @@ def get_node_doc_style(node, document):
         if content_style:
             break
     if content_style:
-        # logger.info(f'Getting parent (document) style of "{node.style}"')
+        # log.debug(f'Getting parent (document) style of "{node.style}"')
         doc_style = content_style.parent_style
         if doc_style:
-            logger.info(
+            log.debug(
                 f'Parent (document) style of content style "{node.style}" is "{doc_style}"'
             )
             style = doc_style
         else:
-            logger.warning(f'Content style "{node.style}" has no parent style.')
+            log.warning(f'Content style "{node.style}" has no parent style.')
     return style
 
 
@@ -56,7 +58,7 @@ def node_has_paragraph_descendent_with_text(node):
 
     def node_contains_paragraph_with_text(n):
         for c in n.children:
-            # logger.debug(f"Checking node tag: {c.tag}")
+            # log.debug(f"Checking node tag: {c.tag}")
             if c.tag in qnames and (c.text or c.tail):
                 return True
             else:

@@ -3,8 +3,10 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from odt2sfm import __version__, logger
+from odt2sfm import __version__
 from odt2sfm.conversions import OdtToSfm, SfmToOdt
+
+log = logging.getLogger("odt2sfm")
 
 
 def parse_args():
@@ -37,7 +39,7 @@ def main():
     loglevel = logging.INFO
     if args.debug:
         loglevel = logging.DEBUG
-    logger.setLevel(loglevel)
+    log.setLevel(loglevel)
 
     # Evaluate path args.
     if args.source_path.suffix.lower() == ".sfm":
@@ -57,12 +59,12 @@ def main():
 
     # Add file handler to logger and remove console logger.
     logfile_handler = logging.FileHandler(logger_filepath)
-    logfile_handler.setFormatter(logger.handlers[0].formatter)  # use console formatter
+    logfile_handler.setFormatter(log.handlers[0].formatter)  # use console formatter
     logger_filepath.write_text("")  # truncate the file
-    logger.addHandler(logfile_handler)
-    logger.removeHandler(logger.handlers[0])
-    logger.info(f"Script start time: {datetime.now(tz=UTC)}")
-    logger.info(f"Conversion type: {conv.__name__}")
+    log.addHandler(logfile_handler)
+    log.removeHandler(log.handlers[0])
+    log.info(f"Script start time: {datetime.now(tz=UTC)}")
+    log.info(f"Conversion type: {conv.__name__}")
 
     # Run converion.
     c = conv(

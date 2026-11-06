@@ -1,5 +1,4 @@
 import logging
 
-import odt2sfm
-
-odt2sfm.logger.setLevel(logging.ERROR)
+log = logging.getLogger("odt2sfm")
+log.setLevel(logging.ERROR)

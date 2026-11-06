@@ -1,8 +1,10 @@
+import logging
 import unicodedata
 from datetime import UTC, datetime
 
-from odt2sfm import logger
+log = logging.getLogger(__name__)
 
+LOG_FORMAT = "%(levelname)s: [%(name)s:%(lineno)d]: %(message)s"
 SFM_PLACEHOLDERS = {
     "~": "\u00a0",
 }
@@ -37,7 +39,7 @@ def verify_paragraph_count(sfm_chapter, odt_chapter):
     len_sfm = len(sfm_ps)
     len_odt = len(odt_ps)
     for i, (p1, p2) in enumerate(zip(sfm_ps, odt_ps)):
-        logger.info(f"{i}: SFM: {p1.intro}; ODT: {p2.intro}")
+        log.info(f"{i}: SFM: {p1.intro}; ODT: {p2.intro}")
     if len_sfm != len_odt:
         raise ValueError(
             f"Paragraph counts differ for ch. {sfm_chapter.number}; SFM: {len_sfm}; ODT: {len_odt}"
@@ -50,11 +52,11 @@ def verify_paragraph_children_count(sfm_paragraph, odt_paragraph):
     len_sfm = len(sfm_children)
     len_odt = len(odt_children)
     if len_sfm != len_odt:
-        logger.warning(
+        log.warning(
             f"Unmatched children for ODT ({len_odt}) & SFM ({len_sfm}): {odt_paragraph.intro}|{sfm_paragraph.intro}"
         )
         for i, (c1, c2) in enumerate(zip(sfm_children, odt_children)):
-            logger.info(f"{i}: SFM: {c1.intro}; ODT: {c2.intro}")
+            log.info(f"{i}: SFM: {c1.intro}; ODT: {c2.intro}")
     return len_sfm - len_odt
 
 
