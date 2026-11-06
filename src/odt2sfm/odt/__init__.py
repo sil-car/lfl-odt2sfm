@@ -52,7 +52,7 @@ class OdtChapter:
     @property
     def all_paragraphs(self):
         """Return all elements from ODT file defined as either a header or a
-        paragraph. Note: Some definied paragraphs have no text, some have no
+        paragraph. Note: Some defined paragraphs have no text, some have no
         defined style, and some are not intended to be user-editable."""
 
         if self._all_paragraphs is None:

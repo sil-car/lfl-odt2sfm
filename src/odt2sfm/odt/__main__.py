@@ -4,6 +4,7 @@ from pathlib import Path
 
 from odt2sfm.base import LOG_FORMAT
 from odt2sfm.odt import OdtChapter
+from odt2sfm.odt.base import get_node_doc_style
 
 log = logging.getLogger("odt2sfm.odt")
 
@@ -25,5 +26,10 @@ def odt_styles():
     )
 
     doc = OdtChapter(args.FILE)
-    for p in doc.paragraphs:
-        print(f"{p.style}: {p.text_recursive}")
+    log.debug(f"{doc.styles=}")
+    for p in doc.all_paragraphs:
+        doc_style = get_node_doc_style(p, doc.odt)
+        if p.style == doc_style:
+            print(f"[{p.style}] {p.text_recursive}")
+        else:
+            print(f"[{doc_style}] (skipped) {p.text_recursive}")
