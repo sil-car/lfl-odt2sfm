@@ -41,7 +41,6 @@ def main():
     if args.source_path.suffix.lower() == ".sfm":
         conv = SfmToOdt
     elif args.source_path.is_dir():
-        logger_filepath = args.source_path / "odt2sfm-export.log"
         conv = OdtToSfm
     else:
         raise ValueError(f"Invalid source: {args.source_path}")
@@ -51,16 +50,17 @@ def main():
             raise ValueError(
                 f"{conv} conversion requires a destination dir containing ODT files."
             )
-        logger_filepath = args.destination_path / "odt2sfm-import.log"
+        logger_filepath = str(args.destination_path / "odt2sfm-import.log")
+    else:
+        logger_filepath = str(args.source_path / "odt2sfm-export.log")
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format=LOG_FORMAT,
-        filename=str(logger_filepath),
+        filename=logger_filepath,
         filemode="w",
     )
 
-    # logger_filepath.write_text("")  # truncate the file
     log.info(f"Script start time: {datetime.now(tz=UTC)}")
     log.info(f"Conversion type: {conv.__name__}")
 

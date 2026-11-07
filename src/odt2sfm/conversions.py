@@ -1,12 +1,16 @@
 import logging
-from collections.abc import Sequence
 from pathlib import Path
+from typing import Protocol
 
 from odt2sfm.base import get_timestamp
 from odt2sfm.odt import OdtBook, OdtChapter
 from odt2sfm.sfm import SfmBook, SfmChapter
 
 log = logging.getLogger(__name__)
+
+
+class HasParagraphs(Protocol):
+    paragraphs: list
 
 
 class Conversion:
@@ -89,13 +93,7 @@ class SfmToOdt(Conversion):
         )
 
     @staticmethod
-    def compare_paragraphs(chapters: Sequence[OdtChapter | SfmChapter]):
-        for chapter in chapters:
-            if isinstance(chapter, SfmChapter):
-                sfm_chapter = chapter
-            elif isinstance(chapter, OdtChapter):
-                odt_chapter = chapter
-
+    def compare_odt_chapter_with_sfm_chapter(odt_chapter: OdtChapter, sfm_chapter: SfmChapter):
         for i, odt_p in enumerate(odt_chapter.paragraphs):
             print(f'[{odt_p.style}] "{odt_p.text_recursive}"')
             try:

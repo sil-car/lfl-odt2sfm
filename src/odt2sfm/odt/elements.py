@@ -87,11 +87,6 @@ class OdtText(OdtElement):
         self.is_tail = tail
 
     @property
-    def tail(self):
-        if self.is_tail:
-            return self.text
-
-    @property
     def text(self):
         if self.is_tail:
             return self.node.tail
