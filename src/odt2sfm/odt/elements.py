@@ -22,7 +22,6 @@ class OdtElement:
         if chapter:
             self.chapter = chapter
         self._path = None
-        self._sfm_marker = None
 
     @property
     def intro(self):
@@ -49,17 +48,11 @@ class OdtElement:
         return self._path
 
     @property
-    def sfm_marker(self):
-        if self._sfm_marker is None and hasattr(self, "style"):
-            self._sfm_marker = self.chapter.sfm_ref.get(self.style)
-        return self._sfm_marker
-
-    @property
     def tail(self):
         return self.node.tail
 
     @tail.setter
-    def tail(self, value):
+    def tail(self, value: str):
         self.node.tail = value
 
     @property
@@ -94,11 +87,6 @@ class OdtText(OdtElement):
         self.is_tail = tail
 
     @property
-    def tail(self):
-        if self.is_tail:
-            return self.text
-
-    @property
     def text(self):
         if self.is_tail:
             return self.node.tail
@@ -123,12 +111,30 @@ class OdtText(OdtElement):
         return text
 
 
-class OdtSpan(OdtElement):
+class OdtStyledElement(OdtElement):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._sfm_marker = None
+        self._style = None
+
+    @property
+    def style(self):
+        if self._style is None:
+            self._style = self.node.style
+        return self._style
+
+    @property
+    def sfm_marker(self):
+        if self.chapter:
+            return self.chapter.sfm_ref.get(self.style)
+
+
+class OdtSpan(OdtStyledElement):
     """A "span" corresponds to the SFM designation of character-level markers;
     e.g. verses, bold, table columns, etc."""
 
     @property
-    def sfm_marker(self):
+    def sfm_marker(self):  # re-definition needed so that setter can be defined
         return super().sfm_marker
 
     @sfm_marker.setter
@@ -136,10 +142,6 @@ class OdtSpan(OdtElement):
         if not value.startswith("\\"):
             raise ValueError(f"Invalid SFM marker: {value}")
         self._sfm_marker = value
-
-    @property
-    def style(self):
-        return self.node.style
 
     @property
     def text(self):
@@ -160,7 +162,7 @@ class OdtSpan(OdtElement):
         sfm = self.sfm_marker
         if sfm is None:
             raise ValueError(
-                f'No SFM span style defined for "{self.style}" in {self.chapter.file_path}'
+                f'No SFM span style defined for "{self.style}".'
             )
         if sfm.endswith("v"):
             # Add newline before verse marker.
@@ -180,7 +182,7 @@ class OdtSpan(OdtElement):
         return sfm_data
 
 
-class OdtParagraph(OdtElement):
+class OdtParagraph(OdtStyledElement):
     """A "paragraph" according to the SFM designation, where all markers are
     either paragraph markers or character markers. This can be a paragraph, a
     heading, a table row, etc."""
@@ -208,22 +210,22 @@ class OdtParagraph(OdtElement):
 
     @property
     def style(self):
-        if self._style is None:
+        if self._style is None and self.chapter:
             self._style = get_node_doc_style(self.node, self.chapter.odt)
         return self._style
 
-    def _get_children_from_node(self, node, accumulator=None, depth=0):
+    def _get_children_from_node(self, node, accumulator: list | None = None, depth=0) -> list:
         """Recurively check the node and its child nodes for those that have
         updatable content."""
+
+        if accumulator is None:
+            accumulator = []
 
         # Only allow recursing one level deeper than original paragraph. This
         # avoids "collecting" text from nested paragraphs.
         if depth > 1:
             return accumulator
         depth += 1
-
-        if accumulator is None:
-            accumulator = []
 
         # We re-interpret text as a "child" for easier looping.
         if node.tag in ("text:a", "text:span"):

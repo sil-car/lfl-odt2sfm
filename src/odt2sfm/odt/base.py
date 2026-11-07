@@ -37,7 +37,9 @@ def get_node_row(node):
 def get_node_table(node):
     if node.parent.tag.startswith("table"):
         # Parent of node is Cell, whose parent is Row, whose parent is Table.
-        return get_node_row(node).parent
+        node_row = get_node_row(node)
+        if node_row and node_row.parent:
+            return node_row.parent
 
 
 def get_node_table_pos(node):
@@ -45,12 +47,13 @@ def get_node_table_pos(node):
 
     table = get_node_table(node)
     row = get_node_row(node)
-    col_ct = len([c for c in table.children if c.tag == "table:table-column"])
-    table_children_elems = [c._xml_element for c in table.children]
-    row_idx = table_children_elems.index(row._xml_element) - col_ct
-    row_children_elems = [c._xml_element for c in row.children]
-    col_idx = row_children_elems.index(node.parent._xml_element)
-    return (row_idx, col_idx)
+    if table and row:
+        col_ct = len([c for c in table.children if c.tag == "table:table-column"])
+        table_children_elems = [c._xml_element for c in table.children]
+        row_idx = table_children_elems.index(row._xml_element) - col_ct
+        row_children_elems = [c._xml_element for c in row.children]
+        col_idx = row_children_elems.index(node.parent._xml_element)
+        return (row_idx, col_idx)
 
 
 def node_has_paragraph_descendent_with_text(node):

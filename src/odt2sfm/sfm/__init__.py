@@ -7,13 +7,11 @@ from odt2sfm.sfm.elements import SfmParagraph
 class SfmChapter:
     """A complete SFM Chapter, with one or more paragraphs and zero or more verses."""
 
-    def __init__(self, raw_sfm=None, parent=None):
+    def __init__(self, raw_sfm: str, parent=None):
+        self._sfm_raw = raw_sfm
+        self.parent = parent
         self._number = None
         self._odt_styles = None
-        self.parent = parent
-        self._sfm_raw = None
-        if raw_sfm is not None:
-            self.sfm_raw = raw_sfm
 
     @property
     def intro(self):
@@ -125,7 +123,7 @@ class SfmBook:
 
     @property
     def id_text(self):
-        if self._id_text is None:
+        if self._id_text is None and self.sfm_raw:
             m = re.search(r"\\id (.*)\n", self.sfm_raw)
             if m:
                 self._id_text = m[1]
@@ -142,7 +140,7 @@ class SfmBook:
 
     @property
     def sfm_raw(self):
-        if self._sfm_raw is None:
+        if self._sfm_raw is None and self.file_path:
             self._sfm_raw = self.file_path.read_text()
         return self._sfm_raw
 
@@ -151,13 +149,14 @@ class SfmBook:
         if self._chapters is None:
             chapters = []
             init = True
-            for c in re.split(r"\\c ", self.sfm_raw):
-                if init:
-                    sfm_raw = c.rstrip(" ")
-                    init = False
-                else:
-                    sfm_raw = f"\\c {c.rstrip(' ')}"
-                # TODO: Do we need to preserve chapter numbers for some reason?
-                chapters.append(SfmChapter(sfm_raw, parent=self))
+            if self.sfm_raw:
+                for c in re.split(r"\\c ", self.sfm_raw):
+                    if init:
+                        sfm_raw = c.rstrip(" ")
+                        init = False
+                    else:
+                        sfm_raw = f"\\c {c.rstrip(' ')}"
+                    # TODO: Do we need to preserve chapter numbers for some reason?
+                    chapters.append(SfmChapter(sfm_raw, parent=self))
             self._chapters = chapters.copy()
         return self._chapters

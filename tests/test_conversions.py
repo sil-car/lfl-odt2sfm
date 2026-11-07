@@ -18,4 +18,4 @@ class TestSfmToOdt(unittest.TestCase):
         self.conv = SfmToOdt(source=SFM_PATH, destination=DATA)
 
     def test_compare_styles(self):
-        self.conv.compare_paragraphs((self.odt_chapter, self.sfm_book.chapters[3]))
+        self.conv.compare_odt_chapter_with_sfm_chapter(self.odt_chapter, self.sfm_book.chapters[3])
