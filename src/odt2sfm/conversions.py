@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 from odt2sfm.base import get_timestamp
@@ -11,19 +12,15 @@ log = logging.getLogger(__name__)
 class Conversion:
     """Base class for ODT-to-SFM or SFM-to-ODT conversions."""
 
-    def __init__(self, source=None, destination=None, normalization_mode="NFC"):
-        self._destination_path = None
+    def __init__(self, source: Path, destination: Path, normalization_mode: str = "NFC"):
+        self._source_path = source
+        self._destination_path = destination
         self.destination_format = None
         self.normalization_mode = normalization_mode
-        self._source_path = None
         self.source_format = None
-        if destination is not None:
-            self.destination_path = destination
-        if source is not None:
-            self.source_path = source
 
     @property
-    def destination_path(self):
+    def destination_path(self):  # need property to enable setter
         return self._destination_path
 
     @destination_path.setter
@@ -92,17 +89,12 @@ class SfmToOdt(Conversion):
         )
 
     @staticmethod
-    def compare_paragraphs(chapters):
-        odt_chapter = None
-        sfm_chapter = None
+    def compare_paragraphs(chapters: Sequence[OdtChapter | SfmChapter]):
         for chapter in chapters:
             if isinstance(chapter, SfmChapter):
                 sfm_chapter = chapter
             elif isinstance(chapter, OdtChapter):
                 odt_chapter = chapter
-        for c in (odt_chapter, sfm_chapter):
-            if c is None:
-                raise ValueError(f"Invalid chapter type: {type(c)}")
 
         for i, odt_p in enumerate(odt_chapter.paragraphs):
             print(f'[{odt_p.style}] "{odt_p.text_recursive}"')
