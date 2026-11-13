@@ -32,18 +32,43 @@ def undo_paratext_replacements(text):
     return text
 
 
-def verify_paragraph_count(sfm_chapter, odt_chapter):
-    # Compare paragraph counts in original data and updated data.
-    sfm_ps = [p for p in sfm_chapter.paragraphs if p.marker not in SFM_ONLY_MARKERS]
+def translatable_sfm_paragraphs(sfm_chapter):
+    """Return the chapter's SFM paragraphs that correspond to ODT paragraphs."""
+    return [p for p in sfm_chapter.paragraphs if p.marker not in SFM_ONLY_MARKERS]
+
+
+def find_chapter_mismatches(sfm_chapter, odt_chapter) -> list[str]:
+    """Return a description of every structural difference between an SFM
+    chapter and the ODT chapter it will be imported into.
+
+    Text is imported piece by piece by position, so the SFM must have the
+    same paragraphs, with the same markers, and the same number of parts
+    (plain text runs and character-styled spans) in each paragraph.
+    """
+    ch = sfm_chapter.number
+    sfm_ps = translatable_sfm_paragraphs(sfm_chapter)
     odt_ps = odt_chapter.paragraphs
-    len_sfm = len(sfm_ps)
-    len_odt = len(odt_ps)
-    for i, (p1, p2) in enumerate(zip(sfm_ps, odt_ps)):
-        log.info(f"{i}: SFM: {p1.intro}; ODT: {p2.intro}")
-    if len_sfm != len_odt:
-        raise ValueError(
-            f"Paragraph counts differ for ch. {sfm_chapter.number}; SFM: {len_sfm}; ODT: {len_odt}"
-        )
+    if len(sfm_ps) != len(odt_ps):
+        # Paragraphs can't be paired up, so further checks are meaningless.
+        return [f"ch. {ch}: paragraph counts differ; SFM: {len(sfm_ps)}; ODT: {len(odt_ps)}"]
+
+    mismatches = []
+    for i, (sfm_p, odt_p) in enumerate(zip(sfm_ps, odt_ps), start=1):
+        log.debug(f"ch. {ch}, paragraph {i}: SFM: {sfm_p.intro}; ODT: {odt_p.intro}")
+        expected = odt_chapter.styles.get(odt_p.style)
+        if sfm_p.marker != expected:
+            mismatches.append(
+                f'ch. {ch}, paragraph {i}: SFM marker {sfm_p.marker} does not match '
+                f'ODT style "{odt_p.style}" (expected {expected}): "{sfm_p.intro}"'
+            )
+            continue
+        n_sfm, n_odt = len(sfm_p.children), len(odt_p.children)
+        if n_sfm != n_odt:
+            mismatches.append(
+                f"ch. {ch}, paragraph {i} ({sfm_p.marker}): SFM has {n_sfm} parts, "
+                f'ODT has {n_odt} (text runs and character styles must match): "{sfm_p.intro}"'
+            )
+    return mismatches
 
 
 def verify_paragraph_children_count(sfm_paragraph, odt_paragraph):
@@ -58,16 +83,3 @@ def verify_paragraph_children_count(sfm_paragraph, odt_paragraph):
         for i, (c1, c2) in enumerate(zip(sfm_children, odt_children)):
             log.info(f"{i}: SFM: {c1.intro}; ODT: {c2.intro}")
     return len_sfm - len_odt
-
-
-def verify_sfm_markers(sfm_chapter, odt_chapter):
-    sfm_paragraphs = [
-        p for p in sfm_chapter.paragraphs if p.marker not in SFM_ONLY_MARKERS
-    ]
-    for i, p in enumerate(odt_chapter.paragraphs):
-        sfm = sfm_paragraphs[i].marker
-        marker = odt_chapter.styles.get(p.style)
-        if marker != sfm:
-            raise ValueError(
-                f'SFM marker ({sfm}; paragraph {i+1}) does not correspond to ODT style ({p.style}) for text "{p.text}|{sfm_paragraphs[i].text}"; expected: {marker}'
-            )

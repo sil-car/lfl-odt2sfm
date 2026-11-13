@@ -3,6 +3,7 @@ M.T._20_Lesson_20_Title \ms1
 Lesson_20_Title	\ms1
 #English_20_Translation_20_-_20_Lesson_20_title
 M.T._20_Text_20_-_20_Lesson_20_Title_20_Scrip_20_Reference  \mr
+Lesson_20_Title_20_Scrip_20_Reference	\mr
 Part_20_Heading \ms2
 Table_20_Left_20_headings   \sp
 M.T._20_Text    \m
@@ -26,7 +27,6 @@ M.T._20_Text_20_-_20_Diamond_20_bullet  \li2
 Body    \m
 M.T._20_Text_20_-_20_Checkmark_20_bullet    \li1
 Bible_20_Story_20_-_20_Graphic_20_Number    \qc
-T6  \no
 M.T._20_Text_20_-_20_Bible_20_story_20_inset    \p
 #English_20_Translation_20_-_20_Bible_20_story_20_inset
 Sub-Head_20_2   \s2
@@ -39,30 +39,21 @@ M.T._20_Coloring_20_Page_20_-_20_Truth  \ms3
 M.T._20_Coloring_20_Page_20_-_20_Memory_20_Verse    \p
 #-- Lesson 2
 Outline_20_Table_20_-_20_Left_20_Column_20_Headings \sp
-T7  \no
-T8  \no
-T9  \no
-T10 \no
 Body_20_Emphasized_20_-_20_Underline    \png
 #-- Lesson 4
 Text_20_body    \m
 #-- Lesson 6
 M.T._20_Text_20_-_20_Numbered_20_List   \li1
 #-- Lesson 7
-T4  \no
-T5  \no
 #-- Lesson 9
 M.T._20_Text_20_-_20_Numbered_20_List_20_Dbl_20_Inset   \li1
-T3  \no
 Default_20_Paragraph_20_Font    \no
 #-- Lesson 13
 Standard    \m
 #-- Lesson 19
 Character_20_style  \no
 #-- Lesson 22
-T2  \no
 #-- Lesson 23
-T1  \no
 #-- Footer
 #Body_20_8_20_pt \m
 #Front_20_Matter_20_footer   \rem

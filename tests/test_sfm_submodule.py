@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 
+import pytest
+
 from odt2sfm.sfm import SfmBook, SfmChapter
 from odt2sfm.sfm.base import get_sfm_type
 from odt2sfm.sfm.elements import SfmElement, SfmParagraph, SfmSpan, SfmText
@@ -143,3 +145,86 @@ class TestSfmSpan(unittest.TestCase):
     def test_span_children_span(self):
         self.assertEqual(len(self.span.children), 1)
         self.assertEqual(self.span.text, "bolded")
+
+
+# --- pytest-style tests ---
+
+
+@pytest.mark.parametrize(
+    ("sfm", "expected"),
+    [("\\p", "p"), ("\\tc1", "tc"), ("\\li2", "li"), ("\\s1", "s"), ("\\v", "v"), ("\\bd*", "bd")],
+)
+def test_get_sfm_type_variants(sfm, expected):
+    assert get_sfm_type(sfm) == expected
+
+
+def test_element_without_marker_raises():
+    with pytest.raises(ValueError, match="No intial SFM marker"):
+        _ = SfmElement("plain text").marker
+
+
+def test_sfm_raw_setter_requires_backslash():
+    e = SfmElement("\\p text")
+    with pytest.raises(ValueError, match="does not begin with a backslash"):
+        e.sfm_raw = "text"
+
+
+def test_marker_setter_rewrites_raw():
+    e = SfmParagraph("\\p Some text")
+    e.marker = "\\m"
+    assert e.sfm_raw == "\\m Some text"
+
+
+def test_span_unmatched_markers_raise():
+    with pytest.raises(ValueError, match="Unmatched markers"):
+        SfmSpan("\\bd text\\it*")
+
+
+def test_span_missing_end_marker_raises():
+    with pytest.raises(ValueError):
+        SfmSpan("\\bd text")
+
+
+def test_verse_span_has_no_end_marker():
+    v = SfmSpan("\\v 12 ")
+    assert (v.marker, v.end_marker, v.text) == ("\\v", None, "12")
+
+
+def test_paragraph_text_undoes_paratext_placeholders():
+    assert SfmParagraph("\\p a~b").text == "a\u00a0b"
+
+
+def test_paragraph_marker_followed_by_newline():
+    para = SfmParagraph("\\p\n\\v 1 Text.")
+    assert para.marker == "\\p"
+    assert [(type(c).__name__, c.text) for c in para.children] == [("SfmSpan", "1"), ("SfmText", "Text.")]
+
+
+def test_text_separator_splits_children():
+    para = SfmParagraph("\\p a _b _c")
+    assert [c.text for c in para.children] == ["a", "b", "c"]
+
+
+def test_chapter_paragraphs_join_verses_to_previous_paragraph():
+    ch = SfmChapter("\\c 4\n\\s1 Head\n\\p\n\\v 1 One.\n\\v 2 Two.\n\\q Quote\n")
+    assert ch.number == 4
+    assert [(para.marker, para.sfm_raw) for para in ch.paragraphs] == [
+        ("\\s1", "\\s1 Head"),
+        ("\\p", "\\p\n\\v 1 One.\n\\v 2 Two."),
+        ("\\q", "\\q Quote"),
+    ]
+
+
+@pytest.mark.parametrize(("raw", "number"), [("\\id XXA\n\\mt T\n", 0), ("\\mt T\n", None)])
+def test_chapter_number_without_c_marker(raw, number):
+    assert SfmChapter(raw).number == number
+
+
+def test_book_without_file():
+    book = SfmBook()
+    assert (book.name, book.sfm_raw, book.chapters, book.id_text) == ("", None, [], None)
+
+
+def test_book_chapter_numbers(book_sfm):
+    assert [c.number for c in SfmBook(book_sfm).chapters] == [0, 1, 2, 3]
+    assert [p.marker for p in SfmBook(book_sfm).chapters[0].paragraphs] == ["\\id"]

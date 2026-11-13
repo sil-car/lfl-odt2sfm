@@ -61,7 +61,7 @@ class SfmChapter:
         if self._odt_styles is None:
             styles = {}
             ref_file = Path(__file__).parents[2] / "ref.txt"
-            for line in ref_file.read_text().splitlines():
+            for line in ref_file.read_text(encoding="utf-8").splitlines():
                 try:
                     k, v = line.split("\\")
                     k = k.strip()

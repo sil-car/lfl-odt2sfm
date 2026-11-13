@@ -1,7 +1,8 @@
 import logging
+import re
 import unicodedata
 
-from odfdo import Element
+from odfdo import Element, Span
 
 from odt2sfm.base import (
     SFM_TEXT_SEP,
@@ -12,6 +13,77 @@ from odt2sfm.base import (
 from odt2sfm.odt.base import get_node_doc_style
 
 log = logging.getLogger(__name__)
+
+RE_NEWLINES = re.compile(r"\n+")
+RE_AUTOMATIC_SPAN_STYLE = re.compile(r"T[0-9]+")
+# USFM "normal text" character style, used for unmapped automatic styles.
+FALLBACK_SPAN_MARKER = "\\no"
+
+
+def strip_newlines(text: str) -> str:
+    """Remove literal newlines from ODT character data.
+
+    In ODF, a newline in text content is white space, displayed as a space.
+    Drop it when it is next to other white space or at either end of the
+    text (where SFM_TEXT_SEP or a marker follows); otherwise replace it with
+    a space so that the words on either side are not joined.
+    e.g.:
+    - Q1_TOC table, row 1, last column, 1st P: "1:5-25\t\n"
+    - Q1_L01 verses at top: "Luc 1:5–25\t\n Luc  1:57–64"
+    """
+
+    def repl(m: re.Match) -> str:
+        before = text[m.start() - 1] if m.start() > 0 else ""
+        after = text[m.end()] if m.end() < len(text) else ""
+        if not before or not after or before.isspace() or after.isspace():
+            return ""
+        return " "
+
+    return RE_NEWLINES.sub(repl, text)
+
+
+def _use_libreoffice_spacing(element) -> None:
+    """Re-encode text:s spacers in element's direct content the way
+    LibreOffice writes them: a run of spaces after a non-space character is
+    one literal space followed by a text:s for the remaining spaces.
+
+    odfdo instead puts a whole run at the end of the text into the text:s
+    ("a<text:s text:c="2"/>" for "a  "). Both display the same, but other
+    tools that split text at text:s elements may see different strings.
+    """
+    changed = True
+    while changed:
+        changed = False
+        children = element.children
+        for i, child in enumerate(children):
+            if child.tag != "text:s":
+                continue
+            prev_text = element.text if i == 0 else children[i - 1].tail
+            if not prev_text or prev_text[-1].isspace():
+                continue
+            if i == 0:
+                element.text = f"{prev_text} "
+            else:
+                children[i - 1].tail = f"{prev_text} "
+            count = int(child.get_attribute("text:c") or 1)
+            if count == 1:
+                element.delete(child)  # its tail is appended to prev_text
+            elif count == 2:
+                child.del_attribute("text:c")
+            else:
+                child.set_attribute("text:c", str(count - 1))
+            changed = True
+            break
+
+
+def _is_verse_span(element) -> bool:
+    if not isinstance(element, OdtSpan):
+        return False
+    # Use lazy import to avoid circular imports.
+    from odt2sfm.sfm.base import get_sfm_type
+
+    marker = element.sfm_marker
+    return marker is not None and get_sfm_type(marker) == "v"
 
 
 class OdtElement:
@@ -70,6 +142,12 @@ class OdtElement:
         """Normalize foreign text according to current document preferences."""
         return unicodedata.normalize(mode, text)
 
+    def sfm_text(self, normalization_mode):
+        """Return the element's text as it is written to SFM, but without
+        markers or Paratext placeholder replacements. Used both for export
+        and for detecting whether imported SFM text differs from the ODT."""
+        return normalize_text(normalization_mode, strip_newlines(self.text))
+
     def to_sfm(self, normalization_mode):
         raise NotImplementedError
 
@@ -100,14 +178,7 @@ class OdtText(OdtElement):
             self.node.text = value
 
     def to_sfm(self, normalization_mode):
-        # Strip any newlines in the text.
-        # e.g.:
-        # - Q1_TOC table, row 1, last column, 1st P: "1:5-25\t\n"
-        # - Q1_L01 verses at top: "Luc 1:5–25\t\n Luc  1:57–64"
-        text = self.text.replace("\n", "")
-        text = do_paratext_replacements(text)
-        text = normalize_text(normalization_mode, text)
-        return text
+        return do_paratext_replacements(self.sfm_text(normalization_mode))
 
 
 class OdtStyledElement(OdtElement):
@@ -133,8 +204,21 @@ class OdtSpan(OdtStyledElement):
     e.g. verses, bold, table columns, etc."""
 
     @property
-    def sfm_marker(self):  # re-definition needed so that setter can be defined
-        return super().sfm_marker
+    def is_automatic_style(self) -> bool:
+        """True for LibreOffice's automatic character styles (T1, T2, ...),
+        which it creates for direct formatting and renumbers per document."""
+        return self.style is not None and RE_AUTOMATIC_SPAN_STYLE.fullmatch(self.style) is not None
+
+    @property
+    def sfm_marker(self):
+        """The marker set explicitly, else the one mapped in styles-reference,
+        else FALLBACK_SPAN_MARKER for an unmapped automatic style."""
+        if self._sfm_marker:
+            return self._sfm_marker
+        marker = super().sfm_marker
+        if marker is None and self.is_automatic_style:
+            marker = FALLBACK_SPAN_MARKER
+        return marker
 
     @sfm_marker.setter
     def sfm_marker(self, value):
@@ -153,7 +237,33 @@ class OdtSpan(OdtStyledElement):
 
     @text.setter
     def text(self, value):
-        self.node.text = value
+        # Descend through wrappers whose only content is one nested span (e.g.
+        # a hyperlink around a formatted span), to keep that span's formatting.
+        target = self.node
+        while (
+            not target.text
+            and len(target.children) == 1
+            and target.children[0].tag == "text:span"
+            and not target.children[0].tail
+        ):
+            target = target.children[0]
+        if not target.children:
+            target.text = value
+            return
+        # Mixed content (tabs, spacers, several spans): replace all of it, so
+        # the old text isn't kept alongside the new.
+        for child in list(target.children):
+            target.delete(child, keep_tail=False)
+        # Span.append_plain_text writes tabs and runs of spaces as
+        # text:tab / text:s elements, so they aren't collapsed on display.
+        tmp = Span()
+        tmp.append_plain_text(value)
+        _use_libreoffice_spacing(tmp)
+        target.text = tmp.text
+        for child in list(tmp.children):
+            # Element.append moves the child as is; Span.append (and
+            # Paragraph.append) would re-encode the spaces before it.
+            Element.append(target, child)
 
     def to_sfm(self, normalization_mode):
         # Use lazy import to avoid circular imports.
@@ -161,20 +271,22 @@ class OdtSpan(OdtStyledElement):
         # Use span style to get SFM marker.
         sfm_data = ""
         sfm = self.sfm_marker
+        # Preview of the span's own text (intro would include its tail).
+        preview = self.text if len(self.text) <= 23 else f"{self.text[:20]}..."
         if sfm is None:
+            if self.style is None:
+                raise ValueError(
+                    f'Character span has no style (e.g. a hyperlink without a character style): "{preview}"'
+                )
             raise ValueError(
-                f'No SFM span style defined for "{self.style}".'
+                f'No SFM marker defined for character style "{self.style}"; add it to styles-reference.txt: "{preview}"'
             )
+        if sfm == FALLBACK_SPAN_MARKER and super().sfm_marker is None:
+            log.info(f'Using {sfm} for unmapped automatic character style "{self.style}": "{preview}"')
         if sfm.endswith("v"):
             # Add newline before verse marker.
             sfm_data += "\n"
-        # Strip any newlines in the text.
-        # e.g.:
-        # - Q1_TOC table, row 1, last column, 1st P: "1:5-25\t\n"
-        # - Q1_L01 verses at top: "Luc 1:5–25\t\n Luc  1:57–64"
-        text = self.text.replace("\n", "")
-        text = do_paratext_replacements(text)
-        text = normalize_text(normalization_mode, text)
+        text = do_paratext_replacements(self.sfm_text(normalization_mode))
         sfm_data += f"{sfm} {text}"
         sfm_type = get_sfm_type(sfm)
         if sfm_type not in SFM_SPAN_TYPES_NO_END_MARKER:
@@ -297,16 +409,21 @@ class OdtParagraph(OdtStyledElement):
 
     def update_text(self, sfm_paragraph, normalization_mode):
         """Starting with the paragraph node, recursively check for Text nodes
-        and update their data if needed."""
-        # Only proceed if overall paragraph text is different.
-        if self.text == normalize_text(normalization_mode, sfm_paragraph.text):
-            log.debug(f"Skipping unchanged paragraph: {self.intro}")
-            return
+        and update their data if needed.
 
-        extra_sfm_items = verify_paragraph_children_count(sfm_paragraph, self)
-        if extra_sfm_items < 0:
-            log.error("Can't update text: not enough SFM paragraph child items.")
-            return
+        Text is compared in its exported form (see OdtElement.sfm_text), so
+        that details lost in export (literal newlines, the original Unicode
+        normalization, the space after a verse number) are only overwritten
+        when the SFM text was actually edited. Unedited text is left
+        untouched, even if its normalization differs from normalization_mode.
+        """
+        # Parts are paired by position; if the counts differ, text would be
+        # lost (fewer SFM parts) or silently dropped (more SFM parts).
+        if verify_paragraph_children_count(sfm_paragraph, self) != 0:
+            raise ValueError(
+                f"Can't update paragraph: SFM has {len(sfm_paragraph.children)} parts, "
+                f'ODT has {len(self.children)}: "{sfm_paragraph.intro}"'
+            )
 
         log.debug(
             f"P children: {[f'{c.__class__.__name__}:{c.text}' for c in self.children]}"
@@ -315,12 +432,23 @@ class OdtParagraph(OdtStyledElement):
             f"XML children: {[f'{c.text=}; {c.tail=}' for c in self.node.children]}"
         )
         sfm_children = [c for c in sfm_paragraph.children]
+        prev_item = None
         for i, odt_item in enumerate(self.children):
             sfm_item = sfm_children[i]
-            sfm_item_normalized_text = normalize_text(normalization_mode, sfm_item.text)
-            if odt_item.text == sfm_item_normalized_text:
+            new_text = normalize_text(normalization_mode, sfm_item.text)
+            current_text = odt_item.sfm_text(normalization_mode)
+            # On export, the text after a verse number supplies the space that
+            # separates it from the number ("\v 1" + " Text"), and SFM parsing
+            # consumes that space, so account for it in both directions.
+            prefix = ""
+            if _is_verse_span(prev_item) and current_text.startswith(" "):
+                current_text = current_text[1:]
+                prefix = " "
+            prev_item = odt_item
+            if current_text == new_text:
                 log.debug(f"Skipping unchanged paragraph child: {odt_item.intro}")
                 continue
+            sfm_item_normalized_text = prefix + new_text
             item = "Unknown"
             tail = ""
             if isinstance(odt_item, OdtText):

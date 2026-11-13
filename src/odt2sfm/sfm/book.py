@@ -46,7 +46,8 @@ class SfmBook:
     @property
     def sfm_raw(self):
         if self._sfm_raw is None and self.file_path:
-            self._sfm_raw = self.file_path.read_text()
+            # utf-8-sig: ignore a byte-order mark (BOM) added by some Windows editors.
+            self._sfm_raw = self.file_path.read_text(encoding="utf-8-sig")
         return self._sfm_raw
 
     @property

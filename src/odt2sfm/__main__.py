@@ -59,6 +59,7 @@ def main():
         format=LOG_FORMAT,
         filename=logger_filepath,
         filemode="w",
+        encoding="utf-8",
     )
 
     log.info(f"Script start time: {datetime.now(tz=UTC)}")

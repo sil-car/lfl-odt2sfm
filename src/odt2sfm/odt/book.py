@@ -2,11 +2,7 @@ import logging
 import re
 from pathlib import Path
 
-from odt2sfm.base import (
-    get_timestamp,
-    verify_paragraph_count,
-    verify_sfm_markers,
-)
+from odt2sfm.base import find_chapter_mismatches, get_timestamp
 from odt2sfm.odt.chapter import OdtChapter
 
 log = logging.getLogger(__name__)
@@ -111,27 +107,39 @@ class OdtBook:
         return sfm_text_data
 
     def update_text(self, sfm_book, new_dest_path):
+        """Write copies of the book's ODT files to new_dest_path, updated with
+        the text of sfm_book.
+
+        The whole SFM book is checked against the ODT book first; if any
+        chapter doesn't match, ValueError lists every problem found and
+        nothing is written.
+        """
         if self.normalization_mode is None:
             raise TypeError("Character normalization mode not specified.")
 
+        # Check every chapter before writing anything.
+        odt_chapters = self.chapters
+        pairs = []
+        mismatches = []
         for sfm_chapter in sfm_book.chapters:
             log.debug(f"Evaluating SFM chapter: {sfm_chapter.number}")
-            odt_chapter = self.chapters.get(sfm_chapter.number)
+            odt_chapter = odt_chapters.get(sfm_chapter.number)
             if odt_chapter is None:
-                raise TypeError(f'Chapter number "{sfm_chapter.number}" not found in ODT book.')
-            # Compare paragraph counts in original data and updated data.
-            verify_paragraph_count(sfm_chapter, odt_chapter)
-            # Ensure that SFM marker is correct for ODT paragraph (or span) style.
-            verify_sfm_markers(sfm_chapter, odt_chapter)
-            # Ensure updated ODT folder exists.
-            new_dest_path.mkdir(exist_ok=True)
-            # Make copy of original ODT into updated folder.
-            odt_new_file = new_dest_path / odt_chapter.file_path.name
+                mismatches.append(f"ch. {sfm_chapter.number}: not found in ODT book")
+                continue
+            mismatches.extend(find_chapter_mismatches(sfm_chapter, odt_chapter))
+            pairs.append((sfm_chapter, odt_chapter))
+        if mismatches:
+            for m in mismatches:
+                log.error(m)
+            raise ValueError(
+                f"SFM text does not match the ODT book; nothing was written. "
+                f"{len(mismatches)} problem(s):\n" + "\n".join(f"- {m}" for m in mismatches)
+            )
 
-            log.debug("Comparing with destination chapter.")
+        new_dest_path.mkdir(exist_ok=True)
+        for sfm_chapter, odt_chapter in pairs:
             odt_chapter.update_text(sfm_chapter, self.normalization_mode)
-            # for i, odt_p in enumerate(odt_chapter.paragraphs):
-            #     log.debug(f"Checking paragraph: {odt_p.intro}")
-            #     odt_p.update_text(sfm_chapter.paragraphs[i], self.normalization_mode)
+            odt_new_file = new_dest_path / odt_chapter.file_path.name
             odt_chapter.save(odt_new_file)
             print(f'Saved to: "{odt_new_file}"')

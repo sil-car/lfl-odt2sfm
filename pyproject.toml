@@ -29,6 +29,25 @@ odt2sfm-normalize-project = "odt2sfm.scripts.normalize_project:main"
 odt2sfm-odt-paragraphs = "odt2sfm.odt.__main__:odt_paragraphs"
 odt2sfm-sfm-paragraphs = "odt2sfm.sfm.__main__:sfm_paragraphs"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+xfail_strict = true
+markers = [
+    "realdata: tests that use real Lessons-from-Luke ODT files in tests/data/real",
+    "cli: tests that exercise command-line entry points",
+]
+
+[tool.coverage.run]
+source = ["odt2sfm"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ['if __name__ == "__main__":']
+
+[tool.ruff]
+src = ["src", "tests"]
+
 [tool.pyright]
 venvPath = "."
 venv = "env"
