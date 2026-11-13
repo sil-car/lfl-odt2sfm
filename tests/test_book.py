@@ -104,5 +104,5 @@ def test_update_text_chapter_missing_from_odt_raises(make_book, tmp_path):
         encoding="utf-8",
     )
     book = OdtBook(make_book(), normalization_mode="NFC")
-    with pytest.raises(TypeError, match='"5" not found'):
+    with pytest.raises(ValueError, match="ch. 5: not found in ODT book"):
         book.update_text(SfmBook(sfm_path), tmp_path / "out")

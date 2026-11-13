@@ -333,10 +333,13 @@ class OdtParagraph(OdtStyledElement):
         when the SFM text was actually edited. Unedited text is left
         untouched, even if its normalization differs from normalization_mode.
         """
-        extra_sfm_items = verify_paragraph_children_count(sfm_paragraph, self)
-        if extra_sfm_items < 0:
-            log.error("Can't update text: not enough SFM paragraph child items.")
-            return
+        # Parts are paired by position; if the counts differ, text would be
+        # lost (fewer SFM parts) or silently dropped (more SFM parts).
+        if verify_paragraph_children_count(sfm_paragraph, self) != 0:
+            raise ValueError(
+                f"Can't update paragraph: SFM has {len(sfm_paragraph.children)} parts, "
+                f'ODT has {len(self.children)}: "{sfm_paragraph.intro}"'
+            )
 
         log.debug(
             f"P children: {[f'{c.__class__.__name__}:{c.text}' for c in self.children]}"

@@ -272,3 +272,20 @@ def test_to_sfm_literal_newline_does_not_join_words(make_odt):
 def test_to_sfm_line_break_element(make_odt):
     chapter = OdtChapter(make_odt([p("Text_20_body", "a<text:line-break/>b")]))
     assert chapter.to_sfm("NFC") == "\\c 1\n\\p a _ _b"
+
+
+@pytest.mark.parametrize(
+    "sfm",
+    [
+        pytest.param("\\p Nouveau texte sans gras.", id="fewer-parts"),
+        pytest.param("\\p Lead \\bd gras\\bd* tail \\it plus\\it*.", id="more-parts"),
+    ],
+)
+def test_update_text_part_count_mismatch_raises(make_odt, sfm):
+    from odt2sfm.sfm import SfmParagraph
+
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"Lead {span('T2', 'bold')} tail.")]))
+    (para,) = chapter.paragraphs
+    with pytest.raises(ValueError, match="Can't update paragraph"):
+        para.update_text(SfmParagraph(sfm), "NFC")
+    assert para.node.text_recursive == "Lead bold tail."

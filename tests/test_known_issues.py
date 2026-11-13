@@ -213,17 +213,6 @@ def test_sfm_read_as_utf8_regardless_of_locale(tmp_path):
 # --- Import (SFM -> ODT) ---
 
 
-@pytest.mark.xfail(
-    reason="When the SFM paragraph has fewer parts than the ODT paragraph, the "
-    "paragraph is skipped with only a log message and the translation is lost."
-)
-def test_update_with_fewer_sfm_children_is_reported(make_odt):
-    chapter = OdtChapter(make_odt([p("Text_20_body", f"Lead {span('T2', 'bold')} tail.")]))
-    (para,) = chapter.paragraphs
-    with pytest.raises(ValueError):
-        para.update_text(SfmParagraph("\\p Nouveau texte sans gras."), "NFC")
-
-
 @pytest.mark.xfail(reason="The lock-file check uses the source filename, not the destination's.")
 def test_save_refuses_when_destination_is_open(make_odt, tmp_path):
     chapter = OdtChapter(make_odt([p("Text_20_body", "x")]))

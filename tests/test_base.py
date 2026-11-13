@@ -8,12 +8,12 @@ import pytest
 from odt2sfm.base import (
     SFM_ONLY_MARKERS,
     do_paratext_replacements,
+    find_chapter_mismatches,
     get_timestamp,
     normalize_text,
+    translatable_sfm_paragraphs,
     undo_paratext_replacements,
     verify_paragraph_children_count,
-    verify_paragraph_count,
-    verify_sfm_markers,
 )
 
 NBSP = " "
@@ -44,24 +44,55 @@ def test_paratext_replacements_roundtrip():
     assert undo_paratext_replacements(sfm) == odt
 
 
-def _para(marker, intro="x"):
-    return NS(marker=marker, intro=intro, children=[])
+def _sfm_p(marker, n_children=1, intro="x"):
+    return NS(marker=marker, intro=intro, children=[NS(intro="c")] * n_children)
 
 
-def test_verify_paragraph_count_ignores_sfm_only_markers():
-    sfm_ch = NS(
-        number=1,
-        paragraphs=[_para(m) for m in SFM_ONLY_MARKERS] + [_para("\\p"), _para("\\s1")],
+def _odt_p(style, n_children=1, intro="x"):
+    return NS(style=style, intro=intro, children=[NS(intro="c")] * n_children)
+
+
+def _chapters(sfm_ps, odt_ps, number=1):
+    sfm_ch = NS(number=number, paragraphs=[_sfm_p(m) for m in SFM_ONLY_MARKERS] + sfm_ps)
+    odt_ch = NS(paragraphs=odt_ps, styles={"Body": "\\p", "Head": "\\s1"})
+    return sfm_ch, odt_ch
+
+
+def test_translatable_sfm_paragraphs_excludes_sfm_only_markers():
+    sfm_ch, _ = _chapters([_sfm_p("\\p")], [])
+    assert [p.marker for p in translatable_sfm_paragraphs(sfm_ch)] == ["\\p"]
+
+
+def test_find_chapter_mismatches_none():
+    sfm_ch, odt_ch = _chapters(
+        [_sfm_p("\\s1"), _sfm_p("\\p", 3)], [_odt_p("Head"), _odt_p("Body", 3)]
     )
-    odt_ch = NS(paragraphs=[_para(None), _para(None)])
-    verify_paragraph_count(sfm_ch, odt_ch)  # no exception
+    assert find_chapter_mismatches(sfm_ch, odt_ch) == []
 
 
-def test_verify_paragraph_count_mismatch_raises():
-    sfm_ch = NS(number=3, paragraphs=[_para("\\p")])
-    odt_ch = NS(paragraphs=[_para(None), _para(None)])
-    with pytest.raises(ValueError, match="ch. 3; SFM: 1; ODT: 2"):
-        verify_paragraph_count(sfm_ch, odt_ch)
+def test_find_chapter_mismatches_paragraph_count_stops_further_checks():
+    sfm_ch, odt_ch = _chapters([_sfm_p("\\q")], [_odt_p("Body"), _odt_p("Body")], number=3)
+    assert find_chapter_mismatches(sfm_ch, odt_ch) == [
+        "ch. 3: paragraph counts differ; SFM: 1; ODT: 2"
+    ]
+
+
+def test_find_chapter_mismatches_reports_every_problem():
+    sfm_ch, odt_ch = _chapters(
+        [
+            _sfm_p("\\p", intro="wrong marker"),
+            _sfm_p("\\p", 2, intro="fewer parts"),
+            _sfm_p("\\p", 4, intro="more parts"),
+            _sfm_p("\\p", 3, intro="fine"),
+        ],
+        [_odt_p("Head"), _odt_p("Body", 3), _odt_p("Body", 3), _odt_p("Body", 3)],
+    )
+    problems = find_chapter_mismatches(sfm_ch, odt_ch)
+    assert len(problems) == 3
+    assert problems[0].startswith("ch. 1, paragraph 1: SFM marker \\p does not match")
+    assert "(expected \\s1)" in problems[0] and "wrong marker" in problems[0]
+    assert problems[1].startswith("ch. 1, paragraph 2 (\\p): SFM has 2 parts, ODT has 3")
+    assert problems[2].startswith("ch. 1, paragraph 3 (\\p): SFM has 4 parts, ODT has 3")
 
 
 @pytest.mark.parametrize(("n_sfm", "n_odt", "expected"), [(2, 2, 0), (3, 2, 1), (1, 2, -1)])
@@ -70,13 +101,3 @@ def test_verify_paragraph_children_count(n_sfm, n_odt, expected):
     sfm_p = NS(children=[child] * n_sfm, intro="s")
     odt_p = NS(children=[child] * n_odt, intro="o")
     assert verify_paragraph_children_count(sfm_p, odt_p) == expected
-
-
-def test_verify_sfm_markers():
-    sfm_ch = NS(paragraphs=[_para("\\id"), NS(marker="\\p", text="t")])
-    odt_ch = NS(paragraphs=[NS(style="Body", text="t")], styles={"Body": "\\p"})
-    verify_sfm_markers(sfm_ch, odt_ch)  # no exception
-
-    odt_ch.styles = {"Body": "\\m"}
-    with pytest.raises(ValueError, match="expected: \\\\m"):
-        verify_sfm_markers(sfm_ch, odt_ch)

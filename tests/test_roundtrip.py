@@ -194,10 +194,6 @@ def test_mismatch_in_first_chapter_rejected_before_writing(make_book, old, new):
     assert not (book.parent / "import" / "out" / book.name).exists()
 
 
-@pytest.mark.xfail(
-    reason="Chapters are verified one at a time, so earlier chapters are already "
-    "written when a later chapter fails verification."
-)
 def test_mismatch_in_later_chapter_rejected_before_writing(make_book):
     book = make_book()
     sfm = export(book, SYNTH_SFM_NAME).replace("\\s2 Subsection", "\\s1 Subsection")
@@ -250,3 +246,27 @@ def test_literal_newline_on_import(make_book, old, new, expected):
         sfm = sfm.replace(old, new)
     out = import_sfm(book, sfm, SYNTH_SFM_NAME)
     assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == [expected]
+
+
+def test_part_count_mismatch_rejected_before_writing(make_book):
+    """A translator removed a character style: the paragraph can't be
+    imported piece by piece, so the whole import is refused."""
+    book = make_book()
+    sfm = export(book, SYNTH_SFM_NAME).replace("\\bd bold\\bd*", "gras")
+    with pytest.raises(ValueError, match=r"ch\. 1, paragraph 3 \(\\p\): SFM has 4 parts, ODT has 6"):
+        import_sfm(book, sfm, SYNTH_SFM_NAME)
+    assert not (book.parent / "import" / "out" / book.name).exists()
+
+
+def test_all_mismatches_reported_together(make_book):
+    book = make_book()
+    sfm = (
+        export(book, SYNTH_SFM_NAME)
+        .replace("\\bd bold\\bd*", "gras")  # ch. 1: missing part
+        .replace("\\s2 Subsection", "\\s1 Subsection")  # ch. 2: wrong marker
+    )
+    with pytest.raises(ValueError, match="2 problem") as exc:
+        import_sfm(book, sfm, SYNTH_SFM_NAME)
+    message = str(exc.value)
+    assert "nothing was written" in message
+    assert "- ch. 1, paragraph 3" in message and "- ch. 2, paragraph 2" in message
