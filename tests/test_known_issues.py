@@ -9,63 +9,35 @@ different failure is reported as a real error instead of being hidden.
 """
 
 import logging
-import sys
 
 import pytest
 
-from odt2sfm.__main__ import main
 from odt2sfm.odt import OdtBook, OdtChapter
 from odt2sfm.odt.base import node_has_paragraph_descendent_with_text
 from odt2sfm.sfm import SfmChapter, SfmParagraph
 from tests.conftest import p, span
 
 PKG_LOGGER = "odt2sfm"
-UNMAPPED = "Table_20_Contents"  # paragraph style present in template, not in DEFAULT_REF
 
 
 def warnings_mentioning(caplog, text):
     return [r for r in caplog.records if r.levelno >= logging.WARNING and text in r.getMessage()]
 
 
-# --- Unmapped styles (agreed: warn by default, fail with --strict) ---
+# --- Unmapped span styles ---
+# (Unmapped *paragraph* styles are skipped by design: that is how untranslated
+# helper paragraphs are excluded. See test_paragraphs_skipped.)
 
 
-@pytest.mark.xfail(reason="Paragraphs with an unmapped style are skipped with only an INFO log.")
-def test_unmapped_paragraph_style_warns(make_odt, caplog):
-    caplog.set_level(logging.WARNING, logger=PKG_LOGGER)
-    chapter = OdtChapter(make_odt([p("Title", "T"), p(UNMAPPED, "Text that would be lost")]))
-    chapter.to_sfm("NFC")
-    assert warnings_mentioning(caplog, UNMAPPED)
-
-
-@pytest.mark.xfail(raises=ValueError, reason="An unmapped span style aborts the export.")
-def test_unmapped_span_style_warns_instead_of_crashing(chapter_odt, caplog):
+@pytest.mark.xfail(
+    raises=ValueError,
+    reason="An unmapped span style aborts the whole export instead of keeping "
+    "the span's text without a character marker.",
+)
+def test_unmapped_span_style_keeps_text(chapter_odt):
     # tests/data/chapter.odt uses span style T2, which is not in its styles-reference.
-    caplog.set_level(logging.WARNING, logger=PKG_LOGGER)
     sfm = OdtChapter(chapter_odt).to_sfm("NFC")
-    assert "Yet another verse" in sfm
-    assert warnings_mentioning(caplog, "T2")
-
-
-@pytest.mark.cli
-@pytest.mark.xfail(raises=SystemExit, reason="There is no --strict option.")
-def test_strict_flag_accepted(monkeypatch, make_book, tmp_path):
-    dest = tmp_path / "41XXA.SFM"
-    monkeypatch.setattr(sys, "argv", ["odt2sfm", "--strict", str(make_book()), str(dest)])
-    main()
-    assert dest.is_file()
-
-
-@pytest.mark.cli
-@pytest.mark.xfail(reason="There is no --strict option.")
-def test_strict_flag_fails_on_unmapped_style(monkeypatch, make_book, tmp_path, capsys):
-    book = make_book(chapters={"L01": [p("Title", "T"), p(UNMAPPED, "lost text")]})
-    dest = tmp_path / "41XXA.SFM"
-    monkeypatch.setattr(sys, "argv", ["odt2sfm", "--strict", str(book), str(dest)])
-    with pytest.raises((ValueError, SystemExit)) as exc:
-        main()
-    assert UNMAPPED in f"{exc.value} {capsys.readouterr().err}"
-    assert not dest.exists()
+    assert "5 Yet another verse" in sfm
 
 
 # --- Book structure ---

@@ -118,6 +118,10 @@ def test_chapter_requires_existing_file(tmp_path):
     ],
 )
 def test_paragraphs_skipped(make_odt, body):
+    """Paragraphs with no translatable text are not exported. Skipping
+    paragraphs whose style isn't in styles-reference.txt is intentional: it is
+    how the untranslated "helper" paragraphs in the source ODTs (often the
+    text in another language) are excluded."""
     assert OdtChapter(make_odt(body)).paragraphs == []
 
 
