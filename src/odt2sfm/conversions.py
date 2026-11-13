@@ -74,7 +74,9 @@ class OdtToSfm(Conversion):
         # FIXME: Add any book details here.
         chapters = "all"
         if self.destination_path:
-            self.destination_path.write_text(self.odt_book.to_sfm(chapters=chapters))
+            self.destination_path.write_text(
+                self.odt_book.to_sfm(chapters=chapters), encoding="utf-8"
+            )
             print(f"SFM data written to {self._destination_path}")
         else:
             print(self.odt_book.to_sfm(chapters=chapters))

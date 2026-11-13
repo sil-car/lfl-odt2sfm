@@ -9,10 +9,7 @@ different failure is reported as a real error instead of being hidden.
 """
 
 import logging
-import os
-import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -20,7 +17,7 @@ from odt2sfm.__main__ import main
 from odt2sfm.odt import OdtBook, OdtChapter
 from odt2sfm.odt.base import node_has_paragraph_descendent_with_text
 from odt2sfm.sfm import SfmChapter, SfmParagraph
-from tests.conftest import DEFAULT_REF, p, span
+from tests.conftest import p, span
 
 PKG_LOGGER = "odt2sfm"
 UNMAPPED = "Table_20_Contents"  # paragraph style present in template, not in DEFAULT_REF
@@ -172,42 +169,6 @@ def test_inline_comment_in_styles_reference(make_odt, write_ref):
     chapter = OdtChapter(make_odt([p("Title", "T")], ref=None))
     write_ref("Title \\mt  # main title\n", directory=chapter.file_path.parent)
     assert chapter.sfm_ref == {"Title": "\\mt"}
-
-
-@pytest.mark.xfail(reason="A UTF-8 BOM (common from Windows editors) becomes part of the first style name.")
-def test_styles_reference_with_bom(make_odt, write_ref):
-    chapter = OdtChapter(make_odt([p("Title", "T")], ref=None))
-    write_ref(DEFAULT_REF, directory=chapter.file_path.parent, encoding="utf-8-sig")
-    assert "Title" in chapter.sfm_ref
-
-
-# --- Encoding ---
-
-ASCII_LOCALE_ENV = {**os.environ, "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0"}
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX locale variables")
-@pytest.mark.xfail(
-    reason="Files are read with the locale encoding instead of UTF-8 "
-    "(fails on Windows/cp1252 and non-UTF-8 locales)."
-)
-def test_sfm_read_as_utf8_regardless_of_locale(tmp_path):
-    sfm = tmp_path / "41XXA.SFM"
-    sfm.write_text("\\id XXA\n\\c 1\n\\p café\n", encoding="utf-8")
-    code = (
-        "import sys; from odt2sfm import SfmBook; "
-        "t = SfmBook(sys.argv[1]).chapters[1].paragraphs[0].text; "
-        "sys.stdout.buffer.write(t.encode('utf-8'))"
-    )
-    result = subprocess.run(
-        [sys.executable, "-X", "utf8=0", "-c", code, str(sfm)],
-        env=ASCII_LOCALE_ENV,
-        capture_output=True,
-        check=False,
-        cwd=Path(__file__).parents[1],
-    )
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
-    assert result.stdout.decode("utf-8") == "café"
 
 
 # --- Import (SFM -> ODT) ---

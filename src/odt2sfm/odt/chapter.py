@@ -156,7 +156,8 @@ class OdtChapter:
                 f"Building SFM reference dict from {self.styles_reference_file}"
             )
             self._sfm_ref = {}
-            for line in self.styles_reference_file.read_text().splitlines():
+            text = self.styles_reference_file.read_text(encoding="utf-8-sig")  # ignore BOM
+            for line in text.splitlines():
                 line = line.strip()
                 if line.startswith("#"):  # skip commented lines  # noqa: SIM114
                     continue
