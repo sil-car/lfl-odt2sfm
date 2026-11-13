@@ -1,9 +1,7 @@
 import unittest
 from pathlib import Path
 
-from odt2sfm.conversions import SfmToOdt
-from odt2sfm.odt import OdtChapter
-from odt2sfm.sfm import SfmBook
+from odt2sfm import OdtChapter, SfmBook, SfmToOdt
 
 DATA = Path(__file__).parent / "data"
 ODT_PATH = DATA / "chapter.odt"

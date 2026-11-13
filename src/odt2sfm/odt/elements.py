@@ -10,7 +10,6 @@ from odt2sfm.base import (
     verify_paragraph_children_count,
 )
 from odt2sfm.odt.base import get_node_doc_style
-from odt2sfm.sfm.base import SFM_SPAN_TYPES_NO_END_MARKER, get_sfm_type
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +156,8 @@ class OdtSpan(OdtStyledElement):
         self.node.text = value
 
     def to_sfm(self, normalization_mode):
+        # Use lazy import to avoid circular imports.
+        from odt2sfm.sfm.base import SFM_SPAN_TYPES_NO_END_MARKER, get_sfm_type
         # Use span style to get SFM marker.
         sfm_data = ""
         sfm = self.sfm_marker

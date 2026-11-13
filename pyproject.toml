@@ -26,7 +26,8 @@ dev = [
 odt2sfm = "odt2sfm.__main__:main"
 odt2sfm-normalize-files = "odt2sfm.scripts.normalize_files:main"
 odt2sfm-normalize-project = "odt2sfm.scripts.normalize_project:main"
-odt2sfm-odt-styles = "odt2sfm.odt.__main__:odt_styles"
+odt2sfm-odt-paragraphs = "odt2sfm.odt.__main__:odt_paragraphs"
+odt2sfm-sfm-paragraphs = "odt2sfm.sfm.__main__:sfm_paragraphs"
 
 [tool.pyright]
 venvPath = "."
