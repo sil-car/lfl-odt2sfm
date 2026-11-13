@@ -24,22 +24,6 @@ def warnings_mentioning(caplog, text):
     return [r for r in caplog.records if r.levelno >= logging.WARNING and text in r.getMessage()]
 
 
-# --- Unmapped span styles ---
-# (Unmapped *paragraph* styles are skipped by design: that is how untranslated
-# helper paragraphs are excluded. See test_paragraphs_skipped.)
-
-
-@pytest.mark.xfail(
-    raises=ValueError,
-    reason="An unmapped span style aborts the whole export instead of keeping "
-    "the span's text without a character marker.",
-)
-def test_unmapped_span_style_keeps_text(chapter_odt):
-    # tests/data/chapter.odt uses span style T2, which is not in its styles-reference.
-    sfm = OdtChapter(chapter_odt).to_sfm("NFC")
-    assert "5 Yet another verse" in sfm
-
-
 # --- Book structure ---
 
 
@@ -69,16 +53,10 @@ def test_id_line_uses_book_language(make_book):
 # --- Export of ODT content ---
 
 
-@pytest.mark.xfail(raises=ValueError, reason="Hyperlinks (text:a) have no style, so to_sfm aborts.")
-def test_hyperlink_exported(make_odt):
-    path = make_odt([p("Text_20_body", 'see <text:a xlink:href="https://x.org">x.org</text:a> now')])
-    assert "x.org" in OdtChapter(path).to_sfm("NFC")
-
-
 @pytest.mark.xfail(
-    raises=ValueError,
     reason="Span mapping uses automatic style names (T1, T2, ...), which LibreOffice "
-    "renumbers per document; identical formatting under another name is unmapped.",
+    "renumbers per document; identical formatting under another, unmapped name "
+    "falls back to \\no instead of the intended marker.",
 )
 def test_span_mapping_independent_of_automatic_style_name(make_odt, tmp_path):
     bold_t3 = (

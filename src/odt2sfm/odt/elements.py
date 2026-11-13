@@ -2,7 +2,7 @@ import logging
 import re
 import unicodedata
 
-from odfdo import Element
+from odfdo import Element, Span
 
 from odt2sfm.base import (
     SFM_TEXT_SEP,
@@ -15,6 +15,9 @@ from odt2sfm.odt.base import get_node_doc_style
 log = logging.getLogger(__name__)
 
 RE_NEWLINES = re.compile(r"\n+")
+RE_AUTOMATIC_SPAN_STYLE = re.compile(r"T[0-9]+")
+# USFM "normal text" character style, used for unmapped automatic styles.
+FALLBACK_SPAN_MARKER = "\\no"
 
 
 def strip_newlines(text: str) -> str:
@@ -37,6 +40,40 @@ def strip_newlines(text: str) -> str:
         return " "
 
     return RE_NEWLINES.sub(repl, text)
+
+
+def _use_libreoffice_spacing(element) -> None:
+    """Re-encode text:s spacers in element's direct content the way
+    LibreOffice writes them: a run of spaces after a non-space character is
+    one literal space followed by a text:s for the remaining spaces.
+
+    odfdo instead puts a whole run at the end of the text into the text:s
+    ("a<text:s text:c="2"/>" for "a  "). Both display the same, but other
+    tools that split text at text:s elements may see different strings.
+    """
+    changed = True
+    while changed:
+        changed = False
+        children = element.children
+        for i, child in enumerate(children):
+            if child.tag != "text:s":
+                continue
+            prev_text = element.text if i == 0 else children[i - 1].tail
+            if not prev_text or prev_text[-1].isspace():
+                continue
+            if i == 0:
+                element.text = f"{prev_text} "
+            else:
+                children[i - 1].tail = f"{prev_text} "
+            count = int(child.get_attribute("text:c") or 1)
+            if count == 1:
+                element.delete(child)  # its tail is appended to prev_text
+            elif count == 2:
+                child.del_attribute("text:c")
+            else:
+                child.set_attribute("text:c", str(count - 1))
+            changed = True
+            break
 
 
 def _is_verse_span(element) -> bool:
@@ -167,8 +204,21 @@ class OdtSpan(OdtStyledElement):
     e.g. verses, bold, table columns, etc."""
 
     @property
-    def sfm_marker(self):  # re-definition needed so that setter can be defined
-        return super().sfm_marker
+    def is_automatic_style(self) -> bool:
+        """True for LibreOffice's automatic character styles (T1, T2, ...),
+        which it creates for direct formatting and renumbers per document."""
+        return self.style is not None and RE_AUTOMATIC_SPAN_STYLE.fullmatch(self.style) is not None
+
+    @property
+    def sfm_marker(self):
+        """The marker set explicitly, else the one mapped in styles-reference,
+        else FALLBACK_SPAN_MARKER for an unmapped automatic style."""
+        if self._sfm_marker:
+            return self._sfm_marker
+        marker = super().sfm_marker
+        if marker is None and self.is_automatic_style:
+            marker = FALLBACK_SPAN_MARKER
+        return marker
 
     @sfm_marker.setter
     def sfm_marker(self, value):
@@ -187,7 +237,33 @@ class OdtSpan(OdtStyledElement):
 
     @text.setter
     def text(self, value):
-        self.node.text = value
+        # Descend through wrappers whose only content is one nested span (e.g.
+        # a hyperlink around a formatted span), to keep that span's formatting.
+        target = self.node
+        while (
+            not target.text
+            and len(target.children) == 1
+            and target.children[0].tag == "text:span"
+            and not target.children[0].tail
+        ):
+            target = target.children[0]
+        if not target.children:
+            target.text = value
+            return
+        # Mixed content (tabs, spacers, several spans): replace all of it, so
+        # the old text isn't kept alongside the new.
+        for child in list(target.children):
+            target.delete(child, keep_tail=False)
+        # Span.append_plain_text writes tabs and runs of spaces as
+        # text:tab / text:s elements, so they aren't collapsed on display.
+        tmp = Span()
+        tmp.append_plain_text(value)
+        _use_libreoffice_spacing(tmp)
+        target.text = tmp.text
+        for child in list(tmp.children):
+            # Element.append moves the child as is; Span.append (and
+            # Paragraph.append) would re-encode the spaces before it.
+            Element.append(target, child)
 
     def to_sfm(self, normalization_mode):
         # Use lazy import to avoid circular imports.
@@ -195,10 +271,18 @@ class OdtSpan(OdtStyledElement):
         # Use span style to get SFM marker.
         sfm_data = ""
         sfm = self.sfm_marker
+        # Preview of the span's own text (intro would include its tail).
+        preview = self.text if len(self.text) <= 23 else f"{self.text[:20]}..."
         if sfm is None:
+            if self.style is None:
+                raise ValueError(
+                    f'Character span has no style (e.g. a hyperlink without a character style): "{preview}"'
+                )
             raise ValueError(
-                f'No SFM span style defined for "{self.style}".'
+                f'No SFM marker defined for character style "{self.style}"; add it to styles-reference.txt: "{preview}"'
             )
+        if sfm == FALLBACK_SPAN_MARKER and super().sfm_marker is None:
+            log.info(f'Using {sfm} for unmapped automatic character style "{self.style}": "{preview}"')
         if sfm.endswith("v"):
             # Add newline before verse marker.
             sfm_data += "\n"

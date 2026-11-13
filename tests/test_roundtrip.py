@@ -17,6 +17,7 @@ import pytest
 
 from odt2sfm.base import SFM_ONLY_MARKERS, verify_paragraph_children_count
 from odt2sfm.odt import OdtBook, OdtChapter
+from odt2sfm.odt.elements import strip_newlines
 from odt2sfm.sfm import SfmBook
 from tests.conftest import EXPECTED_DIR, L02_BODY, REAL_SFM_NAME
 
@@ -270,3 +271,88 @@ def test_all_mismatches_reported_together(make_book):
     message = str(exc.value)
     assert "nothing was written" in message
     assert "- ch. 1, paragraph 3" in message and "- ch. 2, paragraph 2" in message
+
+
+# --- Character spans: \no fallback and hyperlinks ---
+
+
+def test_edit_roundtrip_automatic_style_fallback(make_book):
+    body = [
+        '<text:p text:style-name="Text_20_body">Lead <text:span text:style-name="T5">odd</text:span> tail</text:p>'
+    ]
+    book = make_book(chapters={"L01": body})
+    sfm = export(book, SYNTH_SFM_NAME)
+    assert "\\p Lead \\no odd\\no* tail" in sfm
+    out = import_sfm(book, sfm.replace("\\no odd\\no*", "\\no étrange\\no*"), SYNTH_SFM_NAME)
+    assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == ["Lead étrange tail"]
+
+
+@pytest.mark.realdata
+def test_edit_roundtrip_real_hyperlink(real_book):
+    """The TOC's email link is a text:a wrapping a text:span (T8)."""
+    sfm1 = export(real_book, REAL_SFM_NAME)
+    old = "\\png chris_jackson@sil.org\\png*"
+    assert old in sfm1
+    sfm2 = sfm1.replace(old, "\\png contact@example.org\\png*")
+    out = import_sfm(real_book, sfm2, REAL_SFM_NAME)
+    # The link text is replaced; its address isn't in the SFM, so it's kept.
+    toc = odt_texts(out)["Sango_Luke-Q1-TOC.odt"]
+    assert "[contact@example.org](mailto:chris_jackson@sil.org)" in toc
+    assert export(out, REAL_SFM_NAME) == sfm2
+
+
+# --- text:s spacers (other tools split ODT text at these) ---
+
+RE_MARKER = re.compile(r"(\\[a-z]+[0-9]*\*?)")
+EDIT_CHAR = "ā"  # ā: not in the real data, so the edit can be undone
+
+
+def edit_every_text(sfm: str) -> str:
+    """Change every piece of text (a -> ā), keeping markers and separators."""
+    lines = []
+    for line in sfm.splitlines(keepends=True):
+        if line.startswith(("\\id", "\\rem", "\\usfm", "\\c ")):
+            lines.append(line)
+            continue
+        parts = RE_MARKER.split(line)
+        lines.append("".join(p if RE_MARKER.fullmatch(p) else p.replace("a", EDIT_CHAR) for p in parts))
+    return "".join(lines)
+
+
+def spacer_layout(paragraph_node) -> list[tuple]:
+    """Each text:s in the paragraph: its parent tag, count, and the text before it."""
+    layout = []
+    for s in paragraph_node.get_elements("descendant::text:s"):
+        parent = s.parent
+        siblings = [c._xml_element for c in parent.children]
+        i = siblings.index(s._xml_element)
+        before = parent.text if i == 0 else parent.children[i - 1].tail
+        layout.append((parent.tag, s.get_attribute("text:c"), (before or "").replace(EDIT_CHAR, "a")))
+    return layout
+
+
+@pytest.mark.realdata
+def test_full_edit_keeps_spacers_real(real_book):
+    """Translating every text keeps each text:s spacer in place and encoded
+    as LibreOffice wrote it, both directly in paragraphs (exported as ' _')
+    and inside character spans (exported as plain spaces)."""
+    sfm = export(real_book, REAL_SFM_NAME)
+    assert EDIT_CHAR not in sfm
+    out = import_sfm(real_book, edit_every_text(sfm), REAL_SFM_NAME)
+    n_spacers = 0
+    for f in sorted(real_book.glob("*.odt")):
+        before = OdtChapter(f).paragraphs
+        after = OdtChapter(out / f.name).paragraphs
+        assert len(before) == len(after)
+        for a, b in zip(before, after):
+            assert [c.tag for c in a.node.children] == [c.tag for c in b.node.children]
+            layout_a = spacer_layout(a.node)
+            layout_b = spacer_layout(b.node)
+            # Edited text takes the import normalization and loses literal
+            # newlines (see strip_newlines), so compare in that form.
+            def comparable(layout):
+                return [(t, c, unicodedata.normalize("NFC", strip_newlines(s))) for t, c, s in layout]
+
+            assert comparable(layout_a) == comparable(layout_b)
+            n_spacers += len(layout_a)
+    assert n_spacers > 100  # guard: the fixture really contains spacers

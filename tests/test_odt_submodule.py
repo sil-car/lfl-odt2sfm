@@ -293,3 +293,97 @@ def test_update_text_part_count_mismatch_raises(make_odt, sfm):
     with pytest.raises(ValueError, match="Can't update paragraph"):
         para.update_text(SfmParagraph(sfm), "NFC")
     assert para.node.text_recursive == "Lead bold tail."
+
+
+# --- Unmapped span styles and hyperlinks ---
+
+LINK = '<text:a xlink:href="mailto:a@b.org"{style}>{inner}</text:a>'
+
+
+def test_unmapped_automatic_span_style_falls_back_to_no(chapter_odt, caplog):
+    # tests/data/chapter.odt uses automatic style T2, not in its styles-reference.
+    caplog.set_level("INFO", logger="odt2sfm")
+    sfm = OdtChapter(chapter_odt).to_sfm("NFC")
+    assert sfm.splitlines()[-1] == "\\p \\no 5\\no* Yet another verse, but the first one of a new section."
+    assert any('unmapped automatic character style "T2"' in r.getMessage() for r in caplog.records)
+
+
+def test_mapped_automatic_span_style_uses_mapping(make_odt):
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"a {span('T2', 'b')} c")]))
+    assert chapter.to_sfm("NFC") == "\\c 1\n\\p a \\bd b\\bd* c"  # T2 -> \bd in DEFAULT_REF
+
+
+def test_unmapped_named_span_style_raises(make_odt):
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"a {span('Emphasis', 'b')} c")]))
+    with pytest.raises(ValueError, match='"Emphasis"; add it to styles-reference.txt: "b"'):
+        chapter.to_sfm("NFC")
+
+
+def test_unstyled_hyperlink_raises(make_odt):
+    link = LINK.format(style="", inner="a@b.org")
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"Mail {link} now")]))
+    with pytest.raises(ValueError, match='has no style .*hyperlink.*: "a@b.org"'):
+        chapter.to_sfm("NFC")
+
+
+def test_styled_hyperlink_exported(make_odt, write_ref):
+    link = LINK.format(style=' text:style-name="Internet_20_link"', inner=span("T2", "a@b.org"))
+    path = make_odt([p("Text_20_body", f"Mail {link} now")], ref={"Text_20_body": "\\p", "Internet_20_link": "\\png"})
+    assert OdtChapter(path).to_sfm("NFC") == "\\c 1\n\\p Mail \\png a@b.org\\png* now"
+
+
+def test_explicit_sfm_marker_takes_precedence(chapter_odt):
+    chapter = OdtChapter(chapter_odt)
+    s = OdtSpan(chapter.all_spans[0], chapter=chapter)
+    s.sfm_marker = "\\tc1"
+    assert s.sfm_marker == "\\tc1"
+
+
+# --- Writing new text into a span ---
+
+
+def _only_span(make_odt, inner):
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"Lead {inner} tail")]))
+    (para,) = chapter.paragraphs
+    (s,) = para.spans
+    return para, s
+
+
+def test_span_text_setter_simple(make_odt):
+    para, s = _only_span(make_odt, span("T2", "old"))
+    s.text = "new"
+    assert para.node.text_recursive == "Lead new tail"
+
+
+def test_span_text_setter_keeps_nested_span_formatting(make_odt):
+    link = LINK.format(style=' text:style-name="Internet_20_link"', inner=span("T2", "a@b.org"))
+    para, s = _only_span(make_odt, link)
+    s.text = "x@y.org"
+    assert para.node.text_recursive == "Lead [x@y.org](mailto:a@b.org) tail"
+    inner = para.node.children[0].children[0]
+    assert (inner.tag, inner.style, inner.text) == ("text:span", "T2", "x@y.org")
+
+
+def test_span_text_setter_replaces_mixed_content(make_odt):
+    para, s = _only_span(make_odt, span("T2", "old<text:tab/>x <text:span text:style-name=\"T1\">y</text:span>z"))
+    s.text = "n  e\tw"
+    assert para.node.text_recursive == "Lead n  e\tw tail"
+    assert [c.tag for c in para.node.children[0].children] == ["text:s", "text:tab"]
+    assert s.text == "n  e\tw"
+
+
+@pytest.mark.parametrize(
+    ("original", "new_text", "expected"),
+    [
+        pytest.param("Hinga: <text:s/>", "Hingā:  ", "Hingā: <text:s/>", id="trailing-run"),
+        pytest.param("a <text:s/>b<text:tab/>", "c   d\t", 'c <text:s text:c="2"/>d<text:tab/>', id="mid-run"),
+        pytest.param("x<text:tab/>y", "z ", "z ", id="single-trailing-space"),
+    ],
+)
+def test_span_text_setter_writes_spacers_like_libreoffice(make_odt, original, new_text, expected):
+    """LibreOffice writes a run of spaces as one literal space followed by a
+    text:s for the rest. Other tools split text at text:s, so keep that form."""
+    para, s = _only_span(make_odt, span("T2", original))
+    s.text = new_text
+    inner = para.node.children[0].serialize()
+    assert inner == f'<text:span text:style-name="T2">{expected}</text:span>'
