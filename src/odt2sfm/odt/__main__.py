@@ -2,16 +2,17 @@ import argparse
 import logging
 from pathlib import Path
 
+from odt2sfm import OdtChapter
 from odt2sfm.base import LOG_FORMAT
-from odt2sfm.odt import OdtChapter
 from odt2sfm.odt.base import get_node_doc_style
 
 log = logging.getLogger("odt2sfm.odt")
 
 
-def odt_styles():
+def odt_paragraphs():
     parser = argparse.ArgumentParser()
     parser.add_argument("FILE", type=Path)
+    parser.add_argument("--all", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -30,4 +31,10 @@ def odt_styles():
     for p in doc.all_paragraphs:
         doc_style = get_node_doc_style(p, doc.odt)
         skipped = "(skipped) " if doc_style not in doc.styles else ""
-        print(f"[{doc_style}] {skipped}{p.text_recursive}")
+        if not args.all:
+            if skipped:
+                continue
+            else:
+                print(f"[{doc_style}] {p.text_recursive}")
+        else:
+            print(f"[{doc_style}] {skipped}{p.text_recursive}")
