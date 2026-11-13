@@ -12,7 +12,7 @@ from odt2sfm.odt.base import (
     node_has_paragraph_descendent_with_text,
     node_in_table,
 )
-from odt2sfm.odt.elements import OdtParagraph, OdtSpan, OdtText
+from odt2sfm.odt.elements import OdtParagraph, OdtSpan, OdtText, strip_newlines
 from tests.conftest import p, span
 
 CHAPTER_PATH = Path(__file__).parent / "data" / "chapter.odt"
@@ -244,3 +244,31 @@ def test_save_writes_file(make_odt, tmp_path):
     dest = tmp_path / "copy.odt"
     chapter.save(dest)
     assert OdtChapter(dest).all_paragraphs[0].text == "x"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("abc\ndef", "abc def"),  # only separator: becomes a space
+        ("a\n\nb", "a b"),
+        ("so \nawa", "so awa"),  # next to white space: dropped
+        ("25\t\n  Luc", "25\t  Luc"),
+        ("1:5-25\t\n", "1:5-25\t"),
+        ("\n", ""),  # text:line-break element
+        ("a\n", "a"),
+        ("\na", "a"),
+        ("no newline", "no newline"),
+    ],
+)
+def test_strip_newlines(text, expected):
+    assert strip_newlines(text) == expected
+
+
+def test_to_sfm_literal_newline_does_not_join_words(make_odt):
+    chapter = OdtChapter(make_odt([p("Text_20_body", "abc\ndef")]))
+    assert chapter.to_sfm("NFC") == "\\c 1\n\\p abc def"
+
+
+def test_to_sfm_line_break_element(make_odt):
+    chapter = OdtChapter(make_odt([p("Text_20_body", "a<text:line-break/>b")]))
+    assert chapter.to_sfm("NFC") == "\\c 1\n\\p a _ _b"

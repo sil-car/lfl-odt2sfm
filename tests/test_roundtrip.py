@@ -102,10 +102,6 @@ def test_identity_roundtrip_sfm_unchanged_real(real_book):
 
 
 @pytest.mark.realdata
-@pytest.mark.xfail(
-    reason="Importing unchanged SFM alters ODT text: line breaks (text:line-break) are "
-    "deleted and trailing whitespace of some text runs changes."
-)
 def test_identity_roundtrip_odt_text_unchanged_real(real_book):
     before = odt_texts(real_book)
     out = import_sfm(real_book, export(real_book, REAL_SFM_NAME), REAL_SFM_NAME)
@@ -120,10 +116,6 @@ def test_identity_roundtrip_without_verses(make_book):
     assert odt_texts(out) == odt_texts(book)
 
 
-@pytest.mark.xfail(
-    reason="Text following a verse span loses its leading space on import "
-    "('1 First verse.' becomes '1First verse.')."
-)
 def test_identity_roundtrip_with_verses(make_book):
     book = make_book()
     sfm1 = export(book, SYNTH_SFM_NAME)
@@ -150,9 +142,7 @@ def test_edit_roundtrip_plain_text(make_book):
         "Sous-section",
         "Plain paragraph with espace insécable.",
     ]
-    # Compare only the edited chapter; L01 is affected by the verse-space bug
-    # (see test_identity_roundtrip_with_verses).
-    assert export(out, SYNTH_SFM_NAME).split("\\c 2")[1] == sfm2.split("\\c 2")[1]
+    assert export(out, SYNTH_SFM_NAME) == sfm2
 
 
 def test_edit_roundtrip_span_text(make_book):
@@ -214,3 +204,49 @@ def test_mismatch_in_later_chapter_rejected_before_writing(make_book):
     with pytest.raises(ValueError):
         import_sfm(book, sfm, SYNTH_SFM_NAME)
     assert not (book.parent / "import" / "out" / book.name).exists()
+
+
+# --- Import preserves what SFM cannot represent, unless edited ---
+
+
+def test_edit_after_verse_keeps_separator_space(make_book):
+    book = make_book()
+    sfm2 = export(book, SYNTH_SFM_NAME).replace("\\v 1 First verse.", "\\v 1 Premier verset.")
+    out = import_sfm(book, sfm2, SYNTH_SFM_NAME)
+    l01 = odt_texts(out)["Test_Luke-Q1-L01.odt"]
+    assert l01[2] == "1 Premier verset. 2 Second bold verse."
+    assert export(out, SYNTH_SFM_NAME) == sfm2
+
+
+def test_unedited_text_keeps_original_normalization(make_book):
+    """Accepted behavior: only edited text takes the import normalization
+    mode, so a document can end up with mixed normalization."""
+    nfd_title = unicodedata.normalize("NFD", "Leçon originale")
+    body = [
+        f'<text:p text:style-name="Title">{nfd_title}</text:p>',
+        '<text:p text:style-name="Text_20_body">To be edited.</text:p>',
+    ]
+    book = make_book(chapters={"L01": body})
+    sfm2 = export(book, SYNTH_SFM_NAME).replace("To be edited.", unicodedata.normalize("NFD", "Édité."))
+    out = import_sfm(book, sfm2, SYNTH_SFM_NAME, form="NFC")
+    title, edited = odt_texts(out)["Test_Luke-Q1-L01.odt"]
+    assert title == nfd_title
+    assert edited == unicodedata.normalize("NFC", "Édité.")
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "expected"),
+    [
+        pytest.param(None, None, "abc\ndef", id="unedited-keeps-newline"),
+        pytest.param("abc def", "uvw xyz", "uvw xyz", id="edited-replaced"),
+    ],
+)
+def test_literal_newline_on_import(make_book, old, new, expected):
+    body = ['<text:p text:style-name="Text_20_body">abc\ndef</text:p>']
+    book = make_book(chapters={"L01": body})
+    sfm = export(book, SYNTH_SFM_NAME)
+    assert "\\p abc def" in sfm
+    if old:
+        sfm = sfm.replace(old, new)
+    out = import_sfm(book, sfm, SYNTH_SFM_NAME)
+    assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == [expected]
