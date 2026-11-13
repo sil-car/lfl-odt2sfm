@@ -165,7 +165,7 @@ class SfmText(SfmElement):
 
     @marker.setter
     def marker(self, value):
-        super().marker = None
+        self.marker = None
 
     @property
     def data(self):
