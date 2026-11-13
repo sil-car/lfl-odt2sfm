@@ -1,0 +1,27 @@
+#-- TOC
+#Coloring_20_Page_20_Footer
+M.T._20_Text    \im
+Body    \im
+Internet_20_link    \png
+Body_20_Centered    \iq
+Section_20_Heading  \is1
+Body_20_-_20_1st_20_Line_20_Indent \ip
+#Bible_20_Story_20_-_20_Graphic_20_Number
+Standard    \im
+Body_20_Tight_20_lines  \im
+Part_20_Heading \is1
+Sub-Head_20_1   \is2
+Body_20_Bullet_20_-_20_Checkmark    \im
+M.T._20_Text_20_-_20_Single_20_Inset    \ip
+#English_20_Translation_20_-_20_single_20_inset
+M.T._20_Text_20_-_20_Centered   \iq
+M.T._20_Front_20_matter_20_subtitle \imt2
+M.T._20_Front_20_matter_20_Title    \imt1
+T1  \no
+T6  \no
+T7  \no
+T8  \no
+Table_20_of_20_Contents_20_-_20_Table_20_heading    \im
+M.T._20_Table_20_of_20_Contents \im
+#English_20_Translation_20_-_20_Table_20_of_20_contents
+
