@@ -3,6 +3,7 @@ M.T._20_Lesson_20_Title \ms1
 Lesson_20_Title	\ms1
 #English_20_Translation_20_-_20_Lesson_20_title
 M.T._20_Text_20_-_20_Lesson_20_Title_20_Scrip_20_Reference  \mr
+Lesson_20_Title_20_Scrip_20_Reference	\mr
 Part_20_Heading \ms2
 Table_20_Left_20_headings   \sp
 M.T._20_Text    \m
