@@ -1,4 +1,5 @@
 import logging
+import re
 import unicodedata
 from datetime import UTC, datetime
 
@@ -10,6 +11,9 @@ SFM_PLACEHOLDERS = {
 }
 SFM_ONLY_MARKERS = ("\\id", "\\rem", "\\usfm")
 SFM_TEXT_SEP = " _"
+# A separator is never followed by another underscore, so that a
+# fill-in-the-blank ("na ya ti ______") is read as text, not a separator.
+RE_SFM_TEXT_SEP = re.compile(r" _(?!_)")
 
 
 def get_timestamp():

@@ -205,6 +205,19 @@ def test_text_separator_splits_children():
     assert [c.text for c in para.children] == ["a", "b", "c"]
 
 
+@pytest.mark.parametrize(
+    ("raw", "texts"),
+    [
+        ("\\li1 Na ya ti ______ pepe?", ["Na ya ti ______ pepe?"]),
+        ("\\li1 Na ndo_________?", ["Na ndo_________?"]),
+        ("\\li1 Na ya ti ______ pepe? _( Lamba)", ["Na ya ti ______ pepe?", "( Lamba)"]),
+        ("\\li1 Na ya ti ____ _b", ["Na ya ti ____", "b"]),
+    ],
+)
+def test_fill_in_the_blank_is_not_a_text_separator(raw, texts):
+    assert [c.text for c in SfmParagraph(raw).children] == texts
+
+
 def test_chapter_paragraphs_join_verses_to_previous_paragraph():
     ch = SfmChapter("\\c 4\n\\s1 Head\n\\p\n\\v 1 One.\n\\v 2 Two.\n\\q Quote\n")
     assert ch.number == 4

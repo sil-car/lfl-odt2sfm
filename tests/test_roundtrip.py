@@ -249,6 +249,21 @@ def test_literal_newline_on_import(make_book, old, new, expected):
     assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == [expected]
 
 
+def test_fill_in_the_blank_roundtrip(make_book):
+    """A blank ("______") after a space isn't read as a part separator."""
+    body = [
+        '<text:p text:style-name="Text_20_body">Na ya ti ______ pepe? ( Lamba)</text:p>',
+        '<text:p text:style-name="Text_20_body">Na ______<text:s/>( Ta)</text:p>',
+    ]
+    book = make_book(chapters={"L01": body})
+    sfm = export(book, SYNTH_SFM_NAME)
+    assert "\\p Na ya ti ______ pepe? ( Lamba)" in sfm
+    assert "\\p Na ______ _( Ta)" in sfm
+    sfm = sfm.replace("pepe?", "pepe ?").replace("( Ta)", "(Ta)")
+    out = import_sfm(book, sfm, SYNTH_SFM_NAME)
+    assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == ["Na ya ti ______ pepe ? ( Lamba)", "Na ______ (Ta)"]
+
+
 def test_part_count_mismatch_rejected_before_writing(make_book):
     """A translator removed a character style: the paragraph can't be
     imported piece by piece, so the whole import is refused."""

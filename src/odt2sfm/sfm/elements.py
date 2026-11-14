@@ -1,6 +1,6 @@
 import re
 
-from odt2sfm.base import SFM_TEXT_SEP, normalize_text, undo_paratext_replacements
+from odt2sfm.base import RE_SFM_TEXT_SEP, normalize_text, undo_paratext_replacements
 
 
 class SfmElement:
@@ -69,7 +69,7 @@ class SfmElement:
         for i, child in enumerate(children.copy()[::-1]):
             idx = ct - 1 - i
             if isinstance(child, SfmText):
-                texts = child.text.split(SFM_TEXT_SEP)
+                texts = RE_SFM_TEXT_SEP.split(child.text)
                 if len(texts) > 1:
                     children.pop(idx)
                     for text in texts[::-1]:

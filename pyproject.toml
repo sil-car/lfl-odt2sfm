@@ -47,6 +47,7 @@ exclude_also = ['if __name__ == "__main__":']
 
 [tool.ruff]
 src = ["src", "tests"]
+extend-exclude = ["scripts"]
 
 [tool.pyright]
 venvPath = "."
