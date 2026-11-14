@@ -56,7 +56,7 @@ def test_id_line_uses_book_language(make_book):
 @pytest.mark.xfail(
     reason="Span mapping uses automatic style names (T1, T2, ...), which LibreOffice "
     "renumbers per document; identical formatting under another, unmapped name "
-    "falls back to \\no instead of the intended marker.",
+    "falls back to \\zodt instead of the intended marker.",
 )
 def test_span_mapping_independent_of_automatic_style_name(make_odt, tmp_path):
     bold_t3 = (

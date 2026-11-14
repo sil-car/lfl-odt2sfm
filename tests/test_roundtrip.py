@@ -282,8 +282,8 @@ def test_edit_roundtrip_automatic_style_fallback(make_book):
     ]
     book = make_book(chapters={"L01": body})
     sfm = export(book, SYNTH_SFM_NAME)
-    assert "\\p Lead \\no odd\\no* tail" in sfm
-    out = import_sfm(book, sfm.replace("\\no odd\\no*", "\\no étrange\\no*"), SYNTH_SFM_NAME)
+    assert "\\p Lead \\zodt odd\\zodt* tail" in sfm
+    out = import_sfm(book, sfm.replace("\\zodt odd\\zodt*", "\\zodt étrange\\zodt*"), SYNTH_SFM_NAME)
     assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == ["Lead étrange tail"]
 
 

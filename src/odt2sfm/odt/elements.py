@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 RE_NEWLINES = re.compile(r"\n+")
 RE_AUTOMATIC_SPAN_STYLE = re.compile(r"T[0-9]+")
 # USFM "normal text" character style, used for unmapped automatic styles.
-FALLBACK_SPAN_MARKER = "\\no"
+FALLBACK_SPAN_MARKER = "\\zodt"
 
 
 def strip_newlines(text: str) -> str:

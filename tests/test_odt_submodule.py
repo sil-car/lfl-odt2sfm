@@ -304,7 +304,7 @@ def test_unmapped_automatic_span_style_falls_back_to_no(chapter_odt, caplog):
     # tests/data/chapter.odt uses automatic style T2, not in its styles-reference.
     caplog.set_level("INFO", logger="odt2sfm")
     sfm = OdtChapter(chapter_odt).to_sfm("NFC")
-    assert sfm.splitlines()[-1] == "\\p \\no 5\\no* Yet another verse, but the first one of a new section."
+    assert sfm.splitlines()[-1] == "\\p \\zodt 5\\zodt* Yet another verse, but the first one of a new section."
     assert any('unmapped automatic character style "T2"' in r.getMessage() for r in caplog.records)
 
 
