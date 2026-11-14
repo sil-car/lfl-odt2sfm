@@ -42,6 +42,15 @@ def strip_newlines(text: str) -> str:
     return RE_NEWLINES.sub(repl, text)
 
 
+def is_blank(text: str) -> bool:
+    """True if text is only spaces, tabs and newlines. Such text (from
+    text:s, text:tab and text:line-break elements) isn't an editable part of
+    a paragraph. A newline in ODF character data is white space, and a line
+    break between two spans exports as nothing, so counting it as a part
+    would make the SFM and ODT part counts differ."""
+    return text.strip(" \t\n") == ""
+
+
 def _use_libreoffice_spacing(element) -> None:
     """Re-encode text:s spacers in element's direct content the way
     LibreOffice writes them: a run of spaces after a non-space character is
@@ -345,15 +354,15 @@ class OdtParagraph(OdtStyledElement):
             # "Flatten" a("address")/span by using "inner_text" to eliminate nested spans.
             if node.inner_text:
                 # Skip space-only nodes.
-                if node.inner_text.replace(" ", "").replace("\t", "") != "":
+                if not is_blank(node.inner_text):
                     child = OdtSpan(node, chapter=self.chapter)
                     accumulator.append(child)
                 else:
                     log.info(f"Excluding node w/ only space from: {node.tag}")
         else:
             if node.text:
-                # Skip space-only nodes.
-                if node.text.replace(" ", "").replace("\t", "") != "":
+                # Skip blank nodes, including text:s, text:tab and text:line-break.
+                if not is_blank(node.text):
                     child = OdtText(node.text, node, chapter=self.chapter)
                     accumulator.append(child)
                 else:
@@ -369,7 +378,7 @@ class OdtParagraph(OdtStyledElement):
 
         # As with text, we re-interpret any "tail" as a final child node.
         if node.tail:
-            if node.tail.replace(" ", "").replace("\t", "") != "":
+            if not is_blank(node.tail):
                 accumulator.append(
                     OdtText(node.tail, node, tail=True, chapter=self.chapter)
                 )

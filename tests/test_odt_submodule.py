@@ -275,7 +275,7 @@ def test_to_sfm_literal_newline_does_not_join_words(make_odt):
 
 def test_to_sfm_line_break_element(make_odt):
     chapter = OdtChapter(make_odt([p("Text_20_body", "a<text:line-break/>b")]))
-    assert chapter.to_sfm("NFC") == "\\c 1\n\\p a _ _b"
+    assert chapter.to_sfm("NFC") == "\\c 1\n\\p a _b"
 
 
 @pytest.mark.parametrize(

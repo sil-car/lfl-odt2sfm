@@ -264,6 +264,27 @@ def test_fill_in_the_blank_roundtrip(make_book):
     assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == ["Na ya ti ______ pepe ? ( Lamba)", "Na ______ (Ta)"]
 
 
+@pytest.mark.parametrize("edit", [False, True], ids=["unedited", "edited"])
+def test_line_break_between_spans_roundtrip(make_book, edit):
+    """A line break between two spans (as in a TOC cell listing two passages)
+    isn't a part, so the exported SFM imports back."""
+    body = [
+        (
+            '<text:p text:style-name="Text_20_body"><text:span text:style-name="T2">Luc 9:1 </text:span>'
+            '<text:line-break/><text:span text:style-name="T2">Luc 9:10 </text:span></text:p>'
+        )
+    ]
+    book = make_book(chapters={"L01": body})
+    sfm = export(book, SYNTH_SFM_NAME)
+    assert "\\p \\bd Luc 9:1 \\bd*\\bd Luc 9:10 \\bd*" in sfm
+    if edit:
+        sfm = sfm.replace("9:10", "9:12")
+    out = import_sfm(book, sfm, SYNTH_SFM_NAME)
+    expected = "Luc 9:1 \nLuc 9:12 " if edit else "Luc 9:1 \nLuc 9:10 "
+    assert odt_texts(out)["Test_Luke-Q1-L01.odt"] == [expected]
+    assert export(out, SYNTH_SFM_NAME) == sfm
+
+
 def test_part_count_mismatch_rejected_before_writing(make_book):
     """A translator removed a character style: the paragraph can't be
     imported piece by piece, so the whole import is refused."""
