@@ -11,7 +11,7 @@ log = logging.getLogger("odt2sfm.odt")
 
 def odt_paragraphs():
     parser = argparse.ArgumentParser()
-    parser.add_argument("FILE", type=Path)
+    parser.add_argument("PATH", type=Path)
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--verbose", action="store_true")
@@ -26,19 +26,25 @@ def odt_paragraphs():
         format=LOG_FORMAT,
     )
 
-    doc = OdtChapter(args.FILE)
-    log.debug(f"{doc.styles=}")
-    if args.all:
-        for p in doc.all_paragraphs:
-            doc_style = get_node_doc_style(p, doc.odt)
-            skipped = "(skipped) " if doc_style not in doc.styles else ""
-            if not args.all:
-                if skipped:
-                    continue
-                else:
-                    print(f"[{doc_style}] {p.text_recursive}")
-            else:
-                print(f"[{doc_style}] {skipped}{p.text_recursive}")
+    if args.PATH.is_dir():
+        files = [f for f in args.PATH.iterdir() if f.suffix == ".odt"]
+        files.sort()
+        docs = [OdtChapter(f) for f in files]
     else:
-        for p in doc.paragraphs:
-            print(f"[{get_node_doc_style(p, doc.odt)}] {p.text_recursive}")
+        docs = [OdtChapter(args.PATH)]
+    for doc in docs:
+        log.debug(f"{doc.styles=}")
+        if args.all:
+            for p in doc.all_paragraphs:
+                doc_style = get_node_doc_style(p, doc.odt)
+                skipped = "(skipped) " if doc_style not in doc.styles else ""
+                if not args.all:
+                    if skipped:
+                        continue
+                    else:
+                        print(f"[{doc_style}] {p.text_recursive}")
+                else:
+                    print(f"[{doc_style}] {skipped}{p.text_recursive}")
+        else:
+            for p in doc.paragraphs:
+                print(f"[{get_node_doc_style(p, doc.odt)}] {p.text_recursive}")
