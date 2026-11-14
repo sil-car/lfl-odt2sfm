@@ -29,6 +29,10 @@ def odt_paragraphs():
     if args.PATH.is_dir():
         files = [f for f in args.PATH.iterdir() if f.suffix == ".odt"]
         files.sort()
+        for i, f in enumerate(files[:]):
+            if "TOC" in f.name:
+                files.insert(0, files.pop(i))
+                break
         docs = [OdtChapter(f) for f in files]
     else:
         docs = [OdtChapter(args.PATH)]
