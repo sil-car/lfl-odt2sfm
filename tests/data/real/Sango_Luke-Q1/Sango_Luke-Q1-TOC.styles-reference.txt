@@ -17,10 +17,6 @@ M.T._20_Text_20_-_20_Single_20_Inset    \ip
 M.T._20_Text_20_-_20_Centered   \iq
 M.T._20_Front_20_matter_20_subtitle \imt2
 M.T._20_Front_20_matter_20_Title    \imt1
-T1  \no
-T6  \no
-T7  \no
-T8  \no
 Table_20_of_20_Contents_20_-_20_Table_20_heading    \im
 M.T._20_Table_20_of_20_Contents \im
 #English_20_Translation_20_-_20_Table_20_of_20_contents

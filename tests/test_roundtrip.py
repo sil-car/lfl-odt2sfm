@@ -288,7 +288,7 @@ def test_all_mismatches_reported_together(make_book):
     assert "- ch. 1, paragraph 3" in message and "- ch. 2, paragraph 2" in message
 
 
-# --- Character spans: \no fallback and hyperlinks ---
+# --- Character spans: \zodt fallback and hyperlinks ---
 
 
 def test_edit_roundtrip_automatic_style_fallback(make_book):
