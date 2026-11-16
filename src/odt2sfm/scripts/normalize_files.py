@@ -17,7 +17,7 @@ def get_args():
         "FORM", nargs=1, help="desired character form", choices=["NFC", "NFD"]
     )
     parser.add_argument(
-        "FILE", nargs="+", type=writable_file, help="Paratext project folder path"
+        "FILE", nargs="+", type=writable_file, help="text file path"
     )
     return parser.parse_args()
 

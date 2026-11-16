@@ -10,31 +10,16 @@ from odt2sfm.base import (
     do_paratext_replacements,
     find_chapter_mismatches,
     get_timestamp,
-    normalize_text,
     translatable_sfm_paragraphs,
     undo_paratext_replacements,
     verify_paragraph_children_count,
 )
 
 NBSP = " "
-E_ACUTE_NFC = "é"
-E_ACUTE_NFD = "é"
 
 
 def test_timestamp_format():
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", get_timestamp())
-
-
-@pytest.mark.parametrize(
-    ("form", "text", "expected"),
-    [
-        ("NFC", E_ACUTE_NFD, E_ACUTE_NFC),
-        ("NFD", E_ACUTE_NFC, E_ACUTE_NFD),
-        ("NFC", E_ACUTE_NFC, E_ACUTE_NFC),
-    ],
-)
-def test_normalize_text(form, text, expected):
-    assert normalize_text(form, text) == expected
 
 
 def test_paratext_replacements_roundtrip():

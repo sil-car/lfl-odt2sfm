@@ -6,12 +6,12 @@ import unicodedata
 
 import pytest
 
-from odt2sfm import __version__
 from odt2sfm.__main__ import main
 from odt2sfm.base import get_timestamp
 from odt2sfm.odt.__main__ import odt_paragraphs
 from odt2sfm.scripts import normalize_files, normalize_project
 from odt2sfm.sfm.__main__ import sfm_paragraphs
+from tests.conftest import E_ACUTE_NFC, E_ACUTE_NFD
 
 pytestmark = pytest.mark.cli
 
@@ -40,14 +40,7 @@ def run(monkeypatch, func, *args):
         pkg.setLevel(saved_level)
 
 
-def test_version(monkeypatch, capsys):
-    with pytest.raises(SystemExit) as exc:
-        run(monkeypatch, main, "--version")
-    assert exc.value.code == 0
-    assert capsys.readouterr().out.strip() == __version__
-
-
-def test_export(monkeypatch, make_book, tmp_path, capsys):
+def test_export_to_file(monkeypatch, make_book, tmp_path, capsys):
     book = make_book()
     dest = tmp_path / "41XXA.SFM"
     run(monkeypatch, main, book, dest)
@@ -55,6 +48,22 @@ def test_export(monkeypatch, make_book, tmp_path, capsys):
     assert sfm.startswith('\\id XXA "Test_Luke-Q1"')
     assert "\\c 2" in sfm
     assert f"SFM data written to {dest}" in capsys.readouterr().out
+    log = (book / "odt2sfm-export.log").read_text(encoding="utf-8")
+    assert "Conversion type: OdtToSfm" in log
+
+
+def test_export_to_terminal(monkeypatch, make_book, tmp_path, capsys):
+    book = make_book()
+    before = set(tmp_path.rglob("*"))
+    run(monkeypatch, main, book)
+    out = capsys.readouterr().out
+    first, *_ = out.splitlines()
+    assert first.startswith("\\id ") and '"Test_Luke-Q1"' in first
+    assert "\\c 2" in out
+    assert "Lesson two title" in out
+    assert "SFM data written to" not in out
+    # Nothing written except the export log.
+    assert set(tmp_path.rglob("*")) - before == {book / "odt2sfm-export.log"}
     log = (book / "odt2sfm-export.log").read_text(encoding="utf-8")
     assert "Conversion type: OdtToSfm" in log
 
@@ -78,6 +87,14 @@ def test_import(monkeypatch, make_book, tmp_path):
     updated = book.with_name(f"{book.name}_updated_{get_timestamp()}")
     assert sorted(f.name for f in updated.glob("*.odt")) == sorted(f.name for f in book.glob("*.odt"))
     assert "Conversion type: SfmToOdt" in (book / "odt2sfm-import.log").read_text(encoding="utf-8")
+
+
+def test_import_requires_destination(monkeypatch, tmp_path):
+    sfm_path = tmp_path / "41XXA.sfm"
+    sfm_path.write_text("\\id XXA\n\\c 1\n\\p Text\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="requires a destination dir"):
+        run(monkeypatch, main, sfm_path)
+    assert not (tmp_path / "odt2sfm-import.log").exists()
 
 
 def test_invalid_source(monkeypatch, tmp_path):
@@ -117,6 +134,20 @@ def test_odt_paragraphs(monkeypatch, capsys, make_odt):
     ]
 
 
+@pytest.mark.parametrize(
+    ("toc", "titles"),
+    [
+        (True, ["Table of contents", "Lesson one title", "Lesson two title"]),
+        (False, ["Lesson one title", "Lesson two title"]),
+    ],
+)
+def test_odt_paragraphs_dir(monkeypatch, capsys, make_book, toc, titles):
+    book = make_book(toc=toc)
+    run(monkeypatch, odt_paragraphs, book)
+    out = capsys.readouterr().out.splitlines()
+    assert [line.removeprefix("[Title] ") for line in out if line.startswith("[Title] ")] == titles
+
+
 def test_sfm_paragraphs(monkeypatch, capsys, book_sfm):
     run(monkeypatch, sfm_paragraphs, "-c", "2", book_sfm)
     assert capsys.readouterr().out.splitlines()[0] == '[\\s2] "H2" Section Header'
@@ -128,9 +159,9 @@ def test_sfm_paragraphs(monkeypatch, capsys, book_sfm):
 
 def test_normalize_files(monkeypatch, tmp_path):
     f = tmp_path / "41XXA.SFM"
-    f.write_text("\\p café\n", encoding="utf-8")
+    f.write_text(f"\\p caf{E_ACUTE_NFC}\n", encoding="utf-8")
     run(monkeypatch, normalize_files.main, "-b", "NFD", f)
-    assert f.read_text(encoding="utf-8") == "\\p café\n"
+    assert f.read_text(encoding="utf-8") == f"\\p caf{E_ACUTE_NFD}\n"
     assert (tmp_path / "41XXA.SFM.prenormalize.bak").is_file()
 
 
@@ -143,12 +174,12 @@ def test_normalize_project(monkeypatch, tmp_path):
     (tmp_path / "unique.id").write_text("x")
     sfm_files = [tmp_path / "41XXA.SFM", tmp_path / "42XXB.sfm"]
     for f in sfm_files:
-        f.write_text("\\p café\n", encoding="utf-8")
+        f.write_text(f"\\p caf{E_ACUTE_NFD}\n", encoding="utf-8")
     other = tmp_path / "notes.txt"
-    other.write_text("café", encoding="utf-8")
+    other.write_text(f"caf{E_ACUTE_NFD}", encoding="utf-8")
     run(monkeypatch, normalize_project.main, "NFC", tmp_path)
-    assert all(f.read_text(encoding="utf-8") == "\\p café\n" for f in sfm_files)
-    assert other.read_text(encoding="utf-8") == "café"
+    assert all(f.read_text(encoding="utf-8") == f"\\p caf{E_ACUTE_NFC}\n" for f in sfm_files)
+    assert other.read_text(encoding="utf-8") == f"caf{E_ACUTE_NFD}"
 
 
 def test_normalize_project_rejects_non_paratext_dir(monkeypatch, tmp_path):

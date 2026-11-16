@@ -90,7 +90,7 @@ class OdtBook:
             chs = {i: self.chapters.get(i) for i in ch_nums}
 
         # Handle TOC chapter.
-        toc = chs.pop(0)
+        toc = chs.pop(0, None)
         if toc:
             out_text.extend(toc.to_sfm(self.normalization_mode).splitlines())
         # Handle remaining chapters.
@@ -101,10 +101,9 @@ class OdtBook:
 
         log.debug(f"Writing out {len(out_text)} lines of SFM text data.")
         sfm_text_data = "\n".join(out_text)
-        # Add final newline.
-        if sfm_text_data[-1] != "\n":
-            sfm_text_data += "\n"
-        return sfm_text_data
+        # Always end with exactly one newline.
+        return sfm_text_data.rstrip("\n") + "\n"
+
 
     def update_text(self, sfm_book, new_dest_path):
         """Write copies of the book's ODT files to new_dest_path, updated with

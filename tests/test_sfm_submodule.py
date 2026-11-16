@@ -158,21 +158,20 @@ def test_get_sfm_type_variants(sfm, expected):
     assert get_sfm_type(sfm) == expected
 
 
+def test_sfm_text_str_and_children():
+    t = SfmText("plain")
+    assert (str(t), t.children) == ("plain", [])
+
+
 def test_element_without_marker_raises():
     with pytest.raises(ValueError, match="No intial SFM marker"):
         _ = SfmElement("plain text").marker
 
 
-def test_sfm_raw_setter_requires_backslash():
-    e = SfmElement("\\p text")
-    with pytest.raises(ValueError, match="does not begin with a backslash"):
-        e.sfm_raw = "text"
-
-
-def test_marker_setter_rewrites_raw():
-    e = SfmParagraph("\\p Some text")
-    e.marker = "\\m"
-    assert e.sfm_raw == "\\m Some text"
+@pytest.mark.parametrize("raw", ["\\p \\bd bold \\it x\\it* y\\bd*", "\\p \\bd a \\bd b\\bd*"])
+def test_marker_inside_span_raises(raw):
+    with pytest.raises(ValueError, match="inside \\\\bd span"):
+        _ = SfmParagraph(raw).children
 
 
 def test_span_unmatched_markers_raise():
@@ -228,6 +227,12 @@ def test_chapter_paragraphs_join_verses_to_previous_paragraph():
     ]
 
 
+def test_chapter_paragraphs_skip_blank_lines():
+    ch = SfmChapter("\\c 1\n\n\\p One.\n\n\\v 2 Two.\n\n\\q Three\n")
+    assert [p.sfm_raw for p in ch.paragraphs] == ["\\p One.\n\\v 2 Two.", "\\q Three"]
+    assert str(ch) == ch.sfm_raw
+
+
 @pytest.mark.parametrize(("raw", "number"), [("\\id XXA\n\\mt T\n", 0), ("\\mt T\n", None)])
 def test_chapter_number_without_c_marker(raw, number):
     assert SfmChapter(raw).number == number
@@ -238,6 +243,18 @@ def test_book_without_file():
     assert (book.name, book.sfm_raw, book.chapters, book.id_text) == ("", None, [], None)
 
 
+def test_book_name_is_file_name(book_sfm):
+    book = SfmBook(book_sfm)
+    assert book.name == book_sfm.name
+    assert str(book) == book_sfm.name  # second read uses the cached name
+
+
 def test_book_chapter_numbers(book_sfm):
     assert [c.number for c in SfmBook(book_sfm).chapters] == [0, 1, 2, 3]
     assert [p.marker for p in SfmBook(book_sfm).chapters[0].paragraphs] == ["\\id"]
+
+
+def test_book_id_text_without_id_line(tmp_path):
+    sfm = tmp_path / "41XXA.SFM"
+    sfm.write_text("\\c 1\n\\p Text\n", encoding="utf-8")
+    assert SfmBook(sfm).id_text is None

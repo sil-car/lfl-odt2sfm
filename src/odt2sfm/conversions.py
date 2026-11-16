@@ -62,9 +62,10 @@ class OdtToSfm(Conversion):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         log.info(f"Evaluating source path: {self.source_path}")
+        filename = None if self.destination_path is None else self.destination_path.stem
         self.odt_book = OdtBook(
             self.source_path,
-            filename=self.destination_path.stem,
+            filename=filename,
             normalization_mode=self.normalization_mode,
         )
         log.info(f"Evaluating destination path: {self.destination_path}")
@@ -93,21 +94,6 @@ class SfmToOdt(Conversion):
         self.odt_book = OdtBook(
             self.destination_path, normalization_mode=self.normalization_mode
         )
-
-    @staticmethod
-    def compare_odt_chapter_with_sfm_chapter(odt_chapter: OdtChapter, sfm_chapter: SfmChapter):
-        for i, odt_p in enumerate(odt_chapter.paragraphs):
-            print(f'[{odt_p.style}] "{odt_p.text_recursive}"')
-            try:
-                sfm_p = sfm_chapter.paragraphs[i]
-            except IndexError:
-                sfm_p = None
-            if sfm_p:
-                style = sfm_p.marker
-                text = sfm_p.text
-            else:
-                style = text = None
-            print(f'[{style}] "{text}"\n')
 
     def run(self):
         """Create updated ODT file(s) based on the data found in the given SFM file."""

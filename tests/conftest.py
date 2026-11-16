@@ -29,6 +29,9 @@ REAL_SFM_NAME = "94XXALtdLS.SFM"
 EXPECTED_DIR = DATA_DIR / "expected"
 REFERENCE_DIR = Path(__file__).parents[1] / "reference"
 
+E_ACUTE_NFC = "\u00e9"
+E_ACUTE_NFD = "\u0065\u0301"
+
 # Default mapping used by synthetic books.
 DEFAULT_REF = {
     "Title": "\\mt",

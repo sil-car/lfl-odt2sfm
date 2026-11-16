@@ -1,6 +1,6 @@
 import re
 
-from odt2sfm.base import RE_SFM_TEXT_SEP, normalize_text, undo_paratext_replacements
+from odt2sfm.base import RE_SFM_TEXT_SEP, undo_paratext_replacements
 
 
 class SfmElement:
@@ -10,15 +10,12 @@ class SfmElement:
     RE_SFM_INIT = re.compile(r"^\\[a-z]+[0-9]*[ \n]")
     RE_SFM = re.compile(r"(\\[a-z]+[0-9]*[ *])")
 
-    def __init__(self, raw_text, odt_style=None, parent=None):
+    def __init__(self, raw_text, parent=None):
         self._marker = None
         self._marker_separator = None
-        self._odt_style = odt_style
         self.parent = parent
         self._sfm_raw = raw_text
         self._text = None
-        # FIXME: Normalization from should come from Paratext project settings.
-        self.normalization_form = "NFD"
 
     @property
     def children(self):
@@ -51,6 +48,8 @@ class SfmElement:
                         f"{span_marker} {span_text}{span_marker}*", parent=self
                     )
                     span_marker = None
+                else:
+                    raise ValueError(f"Unexpected {part} inside {span_marker} span: {self.sfm_raw}")
             elif verse_marker:  # handle verse number
                 v_num, part = part.split(" ", maxsplit=1)
                 children.append(SfmSpan(f"\\v {v_num} ", parent=self))
@@ -58,7 +57,7 @@ class SfmElement:
                 verse_marker = None
             elif span_marker:
                 child = None
-            elif part != "":  # ignore empty part
+            else:
                 child = SfmText(part, parent=self)
             prev_part = part
             if child:
@@ -96,31 +95,9 @@ class SfmElement:
             self._marker_separator = match[0][-1]
         return self._marker
 
-    @marker.setter
-    def marker(self, value):
-        old_marker = self.marker
-        self._marker = value
-        self.sfm_raw = (
-            f"{self.marker} {self.sfm_raw.removeprefix(old_marker).lstrip(' ')}"
-        )
-
-    @property
-    def odt_style(self):
-        return self._odt_style
-
-    @odt_style.setter
-    def odt_style(self, value):
-        self._odt_style = value
-
     @property
     def sfm_raw(self):
         return self._sfm_raw
-
-    @sfm_raw.setter
-    def sfm_raw(self, value):
-        if not value.startswith("\\"):
-            raise ValueError(f'SFM text does not begin with a backslash: "{value}"')
-        self._sfm_raw = value
 
     @property
     def spans(self):
@@ -142,9 +119,6 @@ class SfmElement:
     def texts(self):
         return [c for c in self.children if isinstance(c, SfmText)]
 
-    def _normalize(self, text):
-        return normalize_text(self.normalization_form, text)
-
     def _sanitize(self, text):
         return undo_paratext_replacements(text)
 
@@ -162,14 +136,6 @@ class SfmText(SfmElement):
     @property
     def marker(self):
         return None
-
-    @marker.setter
-    def marker(self, value):
-        self.marker = None
-
-    @property
-    def data(self):
-        return self.text
 
 
 class SfmSpan(SfmElement):

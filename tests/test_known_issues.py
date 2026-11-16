@@ -27,12 +27,6 @@ def warnings_mentioning(caplog, text):
 # --- Book structure ---
 
 
-@pytest.mark.xfail(raises=KeyError, reason="OdtBook.to_sfm does chs.pop(0), so a TOC file is required.")
-def test_export_book_without_toc(make_book):
-    sfm = OdtBook(make_book(toc=False), filename="41XXA.SFM", normalization_mode="NFC").to_sfm()
-    assert sfm.splitlines()[3] == "\\c 1"
-
-
 @pytest.mark.xfail(reason="ODT files without 'L##' or 'TOC' all get chapter None and overwrite each other.")
 def test_files_without_chapter_number_rejected(make_odt, tmp_path):
     book_dir = tmp_path / "book"
@@ -95,11 +89,6 @@ def test_verse_before_any_paragraph_gives_clear_error():
 def test_verse_without_text():
     children = SfmParagraph("\\p\n\\v 5").children
     assert [(type(c).__name__, c.text) for c in children] == [("SfmSpan", "5")]
-
-
-@pytest.mark.xfail(raises=FileNotFoundError, reason="SfmChapter.odt_styles reads a nonexistent ref.txt.")
-def test_sfm_chapter_odt_styles():
-    _ = SfmChapter("\\c 1\n\\p Text\n").odt_styles
 
 
 # --- styles-reference parsing ---

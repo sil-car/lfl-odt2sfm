@@ -1,5 +1,4 @@
 import re
-from pathlib import Path
 
 from odt2sfm.sfm.elements import SfmParagraph
 
@@ -11,16 +10,6 @@ class SfmChapter:
         self._sfm_raw = raw_sfm
         self.parent = parent
         self._number = None
-        self._odt_styles = None
-
-    @property
-    def intro(self):
-        """Returns initial characters of text element; used in logging."""
-        if len(self.sfm_raw) > 23:
-            s = f"{self.sfm_raw[:20]}..."
-        else:
-            s = self.sfm_raw
-        return s
 
     @property
     def number(self):
@@ -57,30 +46,8 @@ class SfmChapter:
         return paragraphs
 
     @property
-    def odt_styles(self):
-        if self._odt_styles is None:
-            styles = {}
-            ref_file = Path(__file__).parents[2] / "ref.txt"
-            for line in ref_file.read_text(encoding="utf-8").splitlines():
-                try:
-                    k, v = line.split("\\")
-                    k = k.strip()
-                    v = f"\\{v.strip()}"
-                    if not styles.get(v):
-                        styles[v] = []
-                    styles[v].append(k)
-                except ValueError as e:
-                    raise ValueError(f"{e}: {line}")
-            self._odt_styles = styles
-        return self._odt_styles
-
-    @property
     def sfm_raw(self):
         return self._sfm_raw
-
-    @sfm_raw.setter
-    def sfm_raw(self, value):
-        self._sfm_raw = value
 
     @property
     def verses(self):

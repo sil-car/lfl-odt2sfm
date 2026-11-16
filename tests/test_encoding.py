@@ -17,7 +17,7 @@ from odt2sfm.base import get_timestamp
 from odt2sfm.normalize import normalize_file
 from odt2sfm.odt import OdtChapter
 from odt2sfm.sfm import SfmBook
-from tests.conftest import DEFAULT_REF, p, ref_text
+from tests.conftest import DEFAULT_REF, E_ACUTE_NFC, E_ACUTE_NFD, p, ref_text
 
 ASCII_LOCALE_ENV = {**os.environ, "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0"}
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX locale variables")
@@ -44,13 +44,13 @@ def test_ascii_locale_is_really_ascii():
 @posix_only
 def test_sfm_read_as_utf8_regardless_of_locale(tmp_path):
     sfm = tmp_path / "41XXA.SFM"
-    sfm.write_text("\\id XXA\n\\c 1\n\\p café\n", encoding="utf-8")
+    sfm.write_text(f"\\id XXA\n\\c 1\n\\p caf{E_ACUTE_NFC}\n", encoding="utf-8")
     code = (
         "import sys; from odt2sfm import SfmBook; "
         "t = SfmBook(sys.argv[1]).chapters[1].paragraphs[0].text; "
         "sys.stdout.buffer.write(t.encode('utf-8'))"
     )
-    assert run_ascii_locale(code, sfm).stdout.decode("utf-8") == "café"
+    assert run_ascii_locale(code, sfm).stdout.decode("utf-8") == f"caf{E_ACUTE_NFC}"
 
 
 @pytest.mark.cli
@@ -81,13 +81,13 @@ def test_cli_export_and_import_regardless_of_locale(make_book, tmp_path):
 @posix_only
 def test_normalize_file_regardless_of_locale(tmp_path):
     f = tmp_path / "41XXA.SFM"
-    f.write_text("\\p café\n", encoding="utf-8")
+    f.write_text(f"\\p caf{E_ACUTE_NFC}\n", encoding="utf-8")
     run_ascii_locale(
         "import sys; from pathlib import Path; from odt2sfm.normalize import normalize_file; "
         "normalize_file('NFD', Path(sys.argv[1]))",
         f,
     )
-    assert f.read_text(encoding="utf-8") == "\\p café\n"
+    assert f.read_text(encoding="utf-8") == f"\\p caf{E_ACUTE_NFD}\n"
 
 
 # --- Byte-order mark (BOM) ---
@@ -114,9 +114,9 @@ def test_sfm_with_bom(tmp_path):
 @pytest.mark.parametrize(
     "raw",
     [
-        pytest.param("\\p café\r\n\\p deux\r\n", id="crlf"),
-        pytest.param("﻿\\p café\n", id="bom"),
-        pytest.param("\\p café", id="no-final-newline"),
+        pytest.param(f"\\p caf{E_ACUTE_NFD}\r\n\\p deux\r\n", id="crlf"),
+        pytest.param(f"﻿\\p caf{E_ACUTE_NFD}\n", id="bom"),
+        pytest.param(f"\\p caf{E_ACUTE_NFD}f", id="no-final-newline"),
     ],
 )
 def test_normalize_file_preserves_file_format(tmp_path, raw):

@@ -119,31 +119,6 @@ class OdtChapter:
                         f" Skipping node whose text comes from a descendent paragraph: {node_name}/{node.children}={node_all_text[:30]}"
                     )
                     continue
-                """
-                if node_in_table(node):
-                    log.info(
-                        f" Handling table node: {active_table=}/{get_node_table_pos(node)}:{node_desc}"
-                    )
-                    if active_table is None:
-                        active_table = get_node_table(node)._xml_element
-                    elif active_table is not get_node_table(node)._xml_element:
-                        raise ValueError(
-                            "New table found before previous table finished."
-                        )
-                    row, col = get_node_table_pos(node)
-                    log.debug(f"cell pos: ({row}, {col})")
-                    # Ensure TableRow paragraph.
-                    if not isinstance(paragraphs[-1], OdtTableRow):
-                        paragraphs.append(OdtTableRow(get_node_row(node), chapter=self))
-                    # Update previous Table paragraph with new cell data.
-                    p = paragraphs[-1]
-                    log.debug(f"{type(p)}:{p.children=}; {p.text_recursive=}")
-                    p.add_cell(node, col)
-                    log.debug(f"{type(p)}:{p.children=}; {p.text_recursive=}")
-                    continue
-                else:
-                    active_table = None
-                """
 
                 paragraphs.append(OdtParagraph(node, chapter=self))
             self._paragraphs = paragraphs
@@ -262,13 +237,6 @@ class OdtChapter:
             out_text.append(f"\\c {self.number}")
         # Add lines from ODT document.
         for paragraph in self.paragraphs:
-            # Ignore paragraphs with no style info.
-            if paragraph.style is None:
-                continue
-            # Ignore paragraphs with no text.
-            if len(paragraph.text_recursive) == 0:
-                continue
-
             out_text.extend(paragraph.to_sfm(normalization_mode).splitlines())
 
         return "\n".join(out_text)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from odt2sfm import OdtChapter, OdtToSfm, SfmBook, SfmToOdt
+from odt2sfm import OdtToSfm, SfmToOdt
 from odt2sfm.base import get_timestamp
 from odt2sfm.conversions import Conversion
 
@@ -50,12 +50,3 @@ def test_sfm_to_odt_writes_sibling_updated_dir(make_book, tmp_path):
     SfmToOdt(source=sfm, destination=book, normalization_mode="NFC").run()
     updated = book.with_name(f"{book.name}_updated_{get_timestamp()}")
     assert sorted(f.name for f in updated.iterdir()) == sorted(f.name for f in book.glob("*.odt"))
-
-
-def test_compare_odt_chapter_with_sfm_chapter(chapter_odt, book_sfm, capsys):
-    odt_chapter = OdtChapter(chapter_odt)
-    odt_chapter.sfm_ref = {**odt_chapter.sfm_ref, "T2": "\\bd"}
-    SfmToOdt.compare_odt_chapter_with_sfm_chapter(odt_chapter, SfmBook(book_sfm).chapters[3])
-    out = capsys.readouterr().out
-    assert '[Title] "Chapter title information, etc."' in out
-    assert '[\\mt] "Chapter title information, etc."' in out

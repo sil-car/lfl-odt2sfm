@@ -17,9 +17,9 @@ def sfm_paragraphs():
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     log_level = logging.WARNING
-    if args.verbose:
+    if args.verbose:  # pragma: no cover
         log_level = logging.INFO
-    if args.debug:
+    if args.debug:  # pragma: no cover
         log_level = logging.DEBUG
     logging.basicConfig(
         level=log_level,

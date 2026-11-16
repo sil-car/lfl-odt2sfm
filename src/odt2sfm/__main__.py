@@ -28,7 +28,7 @@ def parse_args():
         help="set character normalization mode for destination file(s)",
     )
     parser.add_argument("source_path", type=Path, help="source file|dir")
-    parser.add_argument("destination_path", type=Path, help="destination file|dir")
+    parser.add_argument("destination_path", type=Path, nargs="?", help="destination file|dir")
     return parser.parse_args()
 
 
@@ -46,6 +46,10 @@ def main():
         raise ValueError(f"Invalid source: {args.source_path}")
 
     if conv is SfmToOdt:
+        if args.destination_path is None:
+            raise ValueError(
+                f"{conv} conversion requires a destination dir."
+            )
         if not args.destination_path.is_dir():
             raise ValueError(
                 f"{conv} conversion requires a destination dir containing ODT files."

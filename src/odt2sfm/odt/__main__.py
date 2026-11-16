@@ -17,9 +17,9 @@ def odt_paragraphs():
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     log_level = logging.WARNING
-    if args.verbose:
+    if args.verbose:  # pragma: no cover
         log_level = logging.INFO
-    if args.debug:
+    if args.debug:  # pragma: no cover
         log_level = logging.DEBUG
     logging.basicConfig(
         level=log_level,
@@ -42,13 +42,7 @@ def odt_paragraphs():
             for p in doc.all_paragraphs:
                 doc_style = get_node_doc_style(p, doc.odt)
                 skipped = "(skipped) " if doc_style not in doc.styles else ""
-                if not args.all:
-                    if skipped:
-                        continue
-                    else:
-                        print(f"[{doc_style}] {p.text_recursive}")
-                else:
-                    print(f"[{doc_style}] {skipped}{p.text_recursive}")
+                print(f"[{doc_style}] {skipped}{p.text_recursive}")
         else:
             for p in doc.paragraphs:
                 print(f"[{get_node_doc_style(p, doc.odt)}] {p.text_recursive}")

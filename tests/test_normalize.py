@@ -1,12 +1,16 @@
 """Tests for odt2sfm.normalize."""
 
+import argparse
+import os
 import unicodedata
 
 import pytest
 
 from odt2sfm.normalize import normalize_file
+from odt2sfm.scripts import normalize_files, normalize_project
+from tests.conftest import E_ACUTE_NFC
 
-TEXT = "\\p café crème\n\\p deuxième\n"
+TEXT = f"\\p caf{E_ACUTE_NFC} crème\n\\p deuxième\n"
 
 
 @pytest.mark.parametrize("form", ["NFC", "NFD"])
@@ -38,3 +42,24 @@ def test_no_backup_by_default(tmp_path):
     f.write_text(TEXT, encoding="utf-8")
     normalize_file("NFC", f)
     assert list(tmp_path.iterdir()) == [f]
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_ptx_project_dir_rejects_non_folder(tmp_path, kind):
+    path = tmp_path / "LtdLS"
+    if kind == "file":
+        path.write_text("x", encoding="utf-8")
+    with pytest.raises(argparse.ArgumentTypeError, match="Not a valid folder path"):
+        normalize_project.ptx_project_dir(str(path))
+
+
+@pytest.mark.parametrize(
+    ("denied", "message"),
+    [(os.R_OK, "File not readable"), (os.W_OK, "File not writable")],
+)
+def test_writable_file_rejects_missing_permission(monkeypatch, tmp_path, denied, message):
+    f = tmp_path / "41XXA.SFM"
+    f.write_text("\\p text\n", encoding="utf-8")
+    monkeypatch.setattr(os, "access", lambda path, mode: mode != denied)
+    with pytest.raises(argparse.ArgumentTypeError, match=message):
+        normalize_files.writable_file(str(f))

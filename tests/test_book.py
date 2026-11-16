@@ -70,6 +70,13 @@ def test_to_sfm_selected_chapters(make_book):
     assert "\\c 2" in sfm and "\\c 1" not in sfm
 
 
+def test_to_sfm_without_toc(make_book):
+    sfm = OdtBook(make_book(toc=False), filename="41XXA.SFM", normalization_mode="NFC").to_sfm()
+    lines = sfm.splitlines()
+    assert lines[3] == "\\c 1"  # after \id, \rem, \usfm; no TOC lines
+    assert "\\c 2" in sfm and "Table of contents" not in sfm
+
+
 def test_to_sfm_unknown_chapter_raises(make_book):
     book = OdtBook(make_book(), filename="41XXA.SFM", normalization_mode="NFC")
     with pytest.raises(TypeError, match="Chapter not found"):

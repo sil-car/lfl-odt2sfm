@@ -3,17 +3,22 @@ import unittest
 from pathlib import Path
 
 import pytest
+from odfdo import Element, Span
 
 from odt2sfm.odt import OdtChapter
 from odt2sfm.odt.base import (
     get_node_doc_style,
-    get_node_table,
-    get_node_table_pos,
     node_has_paragraph_descendent_with_text,
     node_in_table,
 )
-from odt2sfm.odt.elements import OdtParagraph, OdtSpan, OdtText, strip_newlines
-from tests.conftest import p, span
+from odt2sfm.odt.elements import (
+    OdtParagraph,
+    OdtSpan,
+    OdtText,
+    _use_libreoffice_spacing,
+    strip_newlines,
+)
+from tests.conftest import E_ACUTE_NFC, E_ACUTE_NFD, p, span
 
 CHAPTER_PATH = Path(__file__).parent / "data" / "chapter.odt"
 
@@ -54,8 +59,11 @@ class TestOdtElements(unittest.TestCase):
         self.assertEqual(
             "3 3rd verse, but now 2nd paragraph.", self.paragraph4.text_recursive
         )
+        assert self.paragraph4.text == self.paragraph4.node.text
 
     def test_path(self):
+        # Reading .path twice ensures the value is cached.
+        _ = self.paragraph3.path
         self.assertEqual(
             self.paragraph3.path,
             "office:document-content/office:body/office:text/text:p",
@@ -67,17 +75,6 @@ class TestOdtElements(unittest.TestCase):
     def test_span_text_withtabs(self):
         # print(f"{self.span_tabs.node.children=}")
         self.assertEqual("bold\twith\ttabs.", self.span_tabs.text)
-
-
-class TestOdtTable(unittest.TestCase):
-    def setUp(self):
-        self.chapter = OdtChapter(CHAPTER_PATH)
-
-    def test_table_row_pos(self):
-        p = self.chapter.all_paragraphs[8]  # 8th paragraph is 1st table cell
-        table = get_node_table(p)
-        self.assertIsNotNone(table)
-        self.assertEqual(get_node_table_pos(p), (0, 0))
 
 
 # --- pytest-style tests built on synthetic documents (see conftest.make_odt) ---
@@ -107,6 +104,11 @@ def test_chapter_requires_existing_file(tmp_path):
         OdtChapter()
     with pytest.raises(ValueError, match="does not exist"):
         OdtChapter(tmp_path / "missing.odt")
+
+
+def test_chapter_str_is_file_name(make_odt):
+    path = make_odt(['<text:p text:style-name="Title">A title</text:p>'])
+    assert str(OdtChapter(path)) == path.name
 
 
 @pytest.mark.parametrize(
@@ -212,9 +214,9 @@ def test_to_sfm_toc_has_no_chapter_marker(make_odt):
     assert chapter.to_sfm("NFC") == "\\mt Contents"
 
 
-@pytest.mark.parametrize(("form", "expected"), [("NFC", "café~!"), ("NFD", "café~!")])
+@pytest.mark.parametrize(("form", "expected"), [("NFC", f"caf{E_ACUTE_NFC}~!"), ("NFD", f"caf{E_ACUTE_NFD}~!")])
 def test_to_sfm_normalizes_and_replaces_nbsp(make_odt, form, expected):
-    chapter = OdtChapter(make_odt([p("Text_20_body", "café !")]))
+    chapter = OdtChapter(make_odt([p("Text_20_body", f"caf{E_ACUTE_NFD} !")]))
     assert chapter.to_sfm(form) == f"\\c 1\n\\p {expected}"
 
 
@@ -349,6 +351,12 @@ def _only_span(make_odt, inner):
     return para, s
 
 
+@pytest.mark.parametrize(("style", "marker"), [("Strong_20_Emphasis", None), ("T3", "\\zodt")])
+def test_span_marker_without_chapter(style, marker):
+    node = Element.from_tag(f'<text:span text:style-name="{style}">x</text:span>')
+    assert OdtSpan(node).sfm_marker == marker
+
+
 def test_span_text_setter_simple(make_odt):
     para, s = _only_span(make_odt, span("T2", "old"))
     s.text = "new"
@@ -387,3 +395,17 @@ def test_span_text_setter_writes_spacers_like_libreoffice(make_odt, original, ne
     s.text = new_text
     inner = para.node.children[0].serialize()
     assert inner == f'<text:span text:style-name="T2">{expected}</text:span>'
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("a\tb  ", "<text:span>a<text:tab/>b <text:s/></text:span>"),
+        ("a   ", '<text:span>a <text:s text:c="2"/></text:span>'),
+    ],
+)
+def test_libreoffice_spacing_trailing_runs(value, expected):
+    s = Span()
+    s.append_plain_text(value)
+    _use_libreoffice_spacing(s)
+    assert s.serialize() == expected

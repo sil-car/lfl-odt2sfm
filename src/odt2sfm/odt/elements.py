@@ -113,10 +113,6 @@ class OdtElement:
         return s
 
     @property
-    def parent(self):
-        return self.node.parent
-
-    @property
     def path(self):
         if self._path is None:
             node = self.node
@@ -128,28 +124,12 @@ class OdtElement:
         return self._path
 
     @property
-    def tail(self):
-        return self.node.tail
-
-    @tail.setter
-    def tail(self, value: str):
-        self.node.tail = value
-
-    @property
     def text(self):
         return self.node.text
-
-    @text.setter
-    def text(self, value):
-        self.node.text = value
 
     @property
     def text_recursive(self):
         return self.node.text_recursive
-
-    def _normalize(self, text, mode):
-        """Normalize foreign text according to current document preferences."""
-        return unicodedata.normalize(mode, text)
 
     def sfm_text(self, normalization_mode):
         """Return the element's text as it is written to SFM, but without
@@ -319,7 +299,7 @@ class OdtParagraph(OdtStyledElement):
         if self._children is None:
             log.debug(f'Getting children for paragraph "{self}"')
             log.debug(f"{self.node.children=}")
-            return self._get_children_from_node(self.node)
+            self._children = self._get_children_from_node(self.node)
         return self._children
 
     @property
@@ -404,15 +384,13 @@ class OdtParagraph(OdtStyledElement):
             line += child.to_sfm(normalization_mode)
             prev_child = child
 
-        # Add SFM line.
-        if len(line) > 0:
-            # Do Paratext replacements.
-            line = do_paratext_replacements(line)
-            # Normalize characters.
-            line = normalize_text(normalization_mode, line)
-            lines = line.split("\n")
-            # log.debug(f"{lines=}")
-            out_text.extend(lines)
+        # Do Paratext replacements.
+        line = do_paratext_replacements(line)
+        # Normalize characters.
+        line = normalize_text(normalization_mode, line)
+        lines = line.split("\n")
+        # log.debug(f"{lines=}")
+        out_text.extend(lines)
 
         return "\n".join(out_text)
 
@@ -458,62 +436,7 @@ class OdtParagraph(OdtStyledElement):
                 log.debug(f"Skipping unchanged paragraph child: {odt_item.intro}")
                 continue
             sfm_item_normalized_text = prefix + new_text
-            item = "Unknown"
-            tail = ""
-            if isinstance(odt_item, OdtText):
-                item = "OdtText"
-                if odt_item.is_tail:
-                    tail = " tail"
-            elif isinstance(odt_item, OdtSpan):
-                item = "OdtSpan"
-            log.info(
-                f'Updating {item}{tail} "{odt_item.text}" to "{sfm_item_normalized_text}"'
-            )
+
+            tail = " tail" if isinstance(odt_item, OdtText) and odt_item.is_tail else ""
+            log.info(f'Updating {type(odt_item).__name__}{tail} "{odt_item.text}" to "{sfm_item_normalized_text}"')
             odt_item.text = sfm_item_normalized_text
-
-
-class OdtTableRow(OdtParagraph):
-    """A TableRow is special paragraph whose children are set manually rather
-    than deduced from the node data. All text and styles are found within the
-    children elements."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._children = []
-        self._parent_table = None
-
-    # TODO: Set correct SFM marker for paragraph.
-    @property
-    def children(self):
-        return self._children
-
-    @property
-    def parent_table(self):
-        if self._parent_table is None:
-            # Parent of table-row node is table node.
-            self._parent_table = self.node.parent._xml_element
-        return self._parent_table
-
-    @property
-    def sfm_marker(self):
-        return "\\tr"
-
-    def add_cell(self, node, column_idx):
-        """Add the "paragraph" node's data to the table row. This can include
-        plain text and span data."""
-        # Hijack OdtParagraph to generate child elements.
-        p = OdtParagraph(node, chapter=self.chapter)
-        # Create/update column-initial element.
-        e = OdtSpan(node, chapter=self.chapter)
-        e.sfm_marker = f"\\tc{column_idx}"
-        children = p.children
-        if len(children) == 0:
-            children.append(e)
-        elif isinstance(children[0], OdtText):
-            e.text = children[0].text
-            children[0] = e
-        else:
-            e.text = ""
-            children.insert(0, e)
-        self.children.extend(children)
-        log.debug(f"{self.children=}")
