@@ -51,9 +51,9 @@ class SfmElement:
                 else:
                     raise ValueError(f"Unexpected {part} inside {span_marker} span: {self.sfm_raw}")
             elif verse_marker:  # handle verse number
-                v_num, part = part.split(" ", maxsplit=1)
+                v_num, _, part = part.partition(" ")
                 children.append(SfmSpan(f"\\v {v_num} ", parent=self))
-                child = SfmText(part, parent=self)
+                child = SfmText(part, parent=self) if part else None
                 verse_marker = None
             elif span_marker:
                 child = None
@@ -86,7 +86,7 @@ class SfmElement:
         return s
 
     @property
-    def marker(self):
+    def marker(self) -> str | None:
         if self._marker is None:
             match = self.RE_SFM_INIT.search(self.sfm_raw)
             if match is None:

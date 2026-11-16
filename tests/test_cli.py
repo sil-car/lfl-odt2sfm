@@ -8,10 +8,11 @@ import pytest
 
 from odt2sfm.__main__ import main
 from odt2sfm.base import get_timestamp
+from odt2sfm.odt import OdtChapter
 from odt2sfm.odt.__main__ import odt_paragraphs
 from odt2sfm.scripts import normalize_files, normalize_project
 from odt2sfm.sfm.__main__ import sfm_paragraphs
-from tests.conftest import E_ACUTE_NFC, E_ACUTE_NFD
+from tests.conftest import E_ACUTE_NFC, E_ACUTE_NFD, p
 
 pytestmark = pytest.mark.cli
 
@@ -109,6 +110,14 @@ def test_import_requires_destination_dir(monkeypatch, tmp_path):
     src.write_text("\\id XXA\n")
     with pytest.raises(ValueError, match="requires a destination dir"):
         run(monkeypatch, main, src, tmp_path / "missing")
+
+
+def test_save_refuses_when_destination_is_open(make_odt, tmp_path):
+    chapter = OdtChapter(make_odt([p("Text_20_body", "x")]))
+    dest = tmp_path / "renamed.odt"
+    (tmp_path / f".~lock.{dest.name}#").write_text("")
+    with pytest.raises(OSError):
+        chapter.save(dest)
 
 
 def test_bad_normalization_mode(monkeypatch, make_book, tmp_path):

@@ -20,11 +20,9 @@ def test_book_id_invalid_filename(tmp_path):
         _ = OdtBook(tmp_path, filename="LUK.SFM").book_id
 
 
-def test_language_property(tmp_path):
-    book = OdtBook(tmp_path)
-    assert book.language == ""
-    book.language = 123
-    assert book.language == "123"
+def test_id_line(make_book):
+    sfm = OdtBook(make_book(), filename="41XXA.SFM", normalization_mode="NFC").to_sfm()
+    assert sfm.splitlines()[0] == '\\id XXA "Test_Luke-Q1"'
 
 
 def test_chapters_keyed_by_number(make_book):

@@ -150,6 +150,16 @@ class TestSfmSpan(unittest.TestCase):
 # --- pytest-style tests ---
 
 
+def test_verse_before_any_paragraph_gives_clear_error():
+    with pytest.raises(ValueError, match="\\\\v"):
+        _ = SfmChapter("\\c 1\n\\v 1 Text.\n").paragraphs
+
+
+def test_verse_without_text():
+    children = SfmParagraph("\\p\n\\v 5").children
+    assert [(type(c).__name__, c.text) for c in children] == [("SfmSpan", "5")]
+
+
 @pytest.mark.parametrize(
     ("sfm", "expected"),
     [("\\p", "p"), ("\\tc1", "tc"), ("\\li2", "li"), ("\\s1", "s"), ("\\v", "v"), ("\\bd*", "bd")],

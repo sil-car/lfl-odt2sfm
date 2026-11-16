@@ -40,6 +40,8 @@ class SfmChapter:
                 continue
             elif line.startswith("\\v"):
                 # Add to previous line's paragraph.
+                if not paragraphs:
+                    raise ValueError(f"\\v line has no paragraph marker before it: {line}")
                 p = paragraphs.pop()
                 line = f"{p.sfm_raw}\n{line}"
             paragraphs.append(SfmParagraph(line, parent=self))

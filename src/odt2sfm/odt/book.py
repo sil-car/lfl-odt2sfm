@@ -14,10 +14,9 @@ class OdtBook:
 
     RE_BOOK_ID = re.compile(r"(?<=[0-9])[A-Z]{3}")
 
-    def __init__(self, dir: Path, lang: str | None = None, filename: str | None = None, normalization_mode=None):
+    def __init__(self, dir: Path, filename: str | None = None, normalization_mode=None):
         self.dir_path = dir
         log.info(f"Book folder path: {self.dir_path}")
-        self._language = lang
         self.filename = filename
         self.normalization_mode = normalization_mode
 
@@ -35,16 +34,6 @@ class OdtBook:
         return r[0]
 
     @property
-    def language(self) -> str:
-        if self._language is None:
-            self._language = ""
-        return self._language
-
-    @language.setter
-    def language(self, value):
-        self._language = str(value)
-
-    @property
     def chapters(self) -> dict:
         log.debug(f'Getting chapters for "{self.name}"')
         chapters = {}
@@ -53,7 +42,10 @@ class OdtBook:
         )
         for lf in chapter_files:
             chapter = OdtChapter(lf)
+            if chapter.number is None or chapter.number in chapters:
+                raise ValueError(f"Can't determine a unique chapter number for: {lf.name}")
             chapters[chapter.number] = chapter
+
         return chapters
 
     @property
@@ -70,14 +62,9 @@ class OdtBook:
         log.info(f'Generating SFM output for book "{self.name}"')
         # Initialize data.
         out_text = []
-        # Add "book" info.
-        # r = self.RE_BOOK_ID.search(self.filename)
-        # log.debug(f"{r=}")
-        # book_id = r[0]
-
-        out_text.append(f'\\id {self.book_id} "{self.name}", Sango [sag] translation')
+        out_text.append(f'\\id {self.book_id} "{self.name}"')
         out_text.append(
-            f'\\rem Initial import to SFM by nate_marti@sil.org using Python module "odt2sfm" (https://github.com/sil-car/lfl-odt2sfm) on {self.timestamp()}'
+            f'\\rem Initial conversion to SFM using Python module "odt2sfm" (https://github.com/sil-car/lfl-odt2sfm) on {self.timestamp()}'
         )
         out_text.append("\\usfm 3.0")
 

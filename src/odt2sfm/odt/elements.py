@@ -1,6 +1,5 @@
 import logging
 import re
-import unicodedata
 
 from odfdo import Element, Span
 

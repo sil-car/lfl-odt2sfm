@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Protocol
 
 from odt2sfm.base import get_timestamp
-from odt2sfm.odt import OdtBook, OdtChapter
-from odt2sfm.sfm import SfmBook, SfmChapter
+from odt2sfm.odt import OdtBook
+from odt2sfm.sfm import SfmBook
 
 log = logging.getLogger(__name__)
 

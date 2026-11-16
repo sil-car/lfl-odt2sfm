@@ -1,3 +1,4 @@
+import logging
 import shutil
 import unittest
 from pathlib import Path
@@ -5,7 +6,7 @@ from pathlib import Path
 import pytest
 from odfdo import Element, Span
 
-from odt2sfm.odt import OdtChapter
+from odt2sfm.odt import OdtBook, OdtChapter
 from odt2sfm.odt.base import (
     get_node_doc_style,
     node_has_paragraph_descendent_with_text,
@@ -84,6 +85,10 @@ def frame(inner: str) -> str:
     return f"<draw:frame><draw:text-box>{inner}</draw:text-box></draw:frame>"
 
 
+def warnings_mentioning(caplog, text):
+    return [r for r in caplog.records if r.levelno >= logging.WARNING and text in r.getMessage()]
+
+
 @pytest.mark.parametrize(
     ("name", "number"),
     [
@@ -109,6 +114,14 @@ def test_chapter_requires_existing_file(tmp_path):
 def test_chapter_str_is_file_name(make_odt):
     path = make_odt(['<text:p text:style-name="Title">A title</text:p>'])
     assert str(OdtChapter(path)) == path.name
+
+
+def test_files_without_chapter_number_rejected(make_odt, tmp_path):
+    book_dir = tmp_path / "book"
+    make_odt([p("Title", "A")], name="first.odt", directory=book_dir)
+    make_odt([p("Title", "B")], name="second.odt", directory=book_dir)
+    with pytest.raises(ValueError):
+        _ = OdtBook(book_dir).chapters
 
 
 @pytest.mark.parametrize(
@@ -295,6 +308,20 @@ def test_update_text_part_count_mismatch_raises(make_odt, sfm):
     with pytest.raises(ValueError, match="Can't update paragraph"):
         para.update_text(SfmParagraph(sfm), "NFC")
     assert para.node.text_recursive == "Lead bold tail."
+
+
+def test_inline_comment_in_styles_reference(make_odt, write_ref):
+    chapter = OdtChapter(make_odt([p("Title", "T")], ref=None))
+    write_ref("Title \\mt  # main title\n", directory=chapter.file_path.parent)
+    assert chapter.sfm_ref == {"Title": "\\mt"}
+
+
+def test_conflicting_duplicate_style_warns(make_odt, write_ref, caplog):
+    caplog.set_level(logging.WARNING, logger="odt2sfm")
+    chapter = OdtChapter(make_odt([p("Title", "T")], ref=None))
+    write_ref("Title \\mt\nTitle \\s1\n", directory=chapter.file_path.parent)
+    _ = chapter.sfm_ref
+    assert warnings_mentioning(caplog, "Title")
 
 
 # --- Unmapped span styles and hyperlinks ---

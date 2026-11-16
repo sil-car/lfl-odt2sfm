@@ -133,14 +133,15 @@ class OdtChapter:
             self._sfm_ref = {}
             text = self.styles_reference_file.read_text(encoding="utf-8-sig")  # ignore BOM
             for line in text.splitlines():
-                line = line.strip()
-                if line.startswith("#"):  # skip commented lines  # noqa: SIM114
-                    continue
-                elif line == "":  # skip blank lines
+                line = line.split("#", 1)[0].strip()
+                if line == "":  # skip blank and commented lines
                     continue
                 try:
                     k, v = line.split("\\")
-                    self._sfm_ref[k.strip()] = f"\\{v.strip()}"
+                    k, v = k.strip(), f"\\{v.strip()}"
+                    if self._sfm_ref.get(k, v) != v:
+                        log.warning(f'Style "{k}" is listed again with a different marker: {self._sfm_ref[k]} → {v}')
+                    self._sfm_ref[k] = v
                 except ValueError as e:
                     raise ValueError(f"{e}: {line}")
         return self._sfm_ref
@@ -222,9 +223,10 @@ class OdtChapter:
         return accumulator
 
     def save(self, file_path):
-        lock_file = file_path.parent / f".~lock.{self.file_path.name}#"
+        lock_file = file_path.parent / f".~lock.{file_path.name}#"
         if lock_file.is_file():
-            raise OSError(f"Can't save; file already open: {self.file_path}")
+            raise OSError(f"Can't save; file already open: {file_path}")
+
         log.info(f"Saving ODT to: {file_path}")
         self.odt.save(str(file_path))
 
