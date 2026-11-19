@@ -139,7 +139,7 @@ evaluate() {
         return
     fi
     echo "Running 'evaluate'..."
-    run_reimport evaluate.log evaluate "${remote_old}/${odt_filename}" "${remote_new}/${odt_filename}"
+    run_reimport evaluate.log evaluate "${remote_old}/${odt_filename}" "${remote_new}/${odt_filename}" --language-id 5
 }
 
 conflicts() {
