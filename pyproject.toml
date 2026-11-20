@@ -16,6 +16,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
+    "lxml",
     "pyright",
     "pytest>=7",
     "pytest-cov",
@@ -47,9 +48,12 @@ exclude_also = ['if __name__ == "__main__":', "raise NotImplementedError"]
 
 [tool.ruff]
 src = ["src", "tests"]
+force-exclude = true
 extend-exclude = ["scripts"]
 
 [tool.pyright]
 venvPath = "."
 venv = "env"
 typeCheckingMode = "standard"
+exclude = ["scripts"]
+ignore = ["scripts"]
