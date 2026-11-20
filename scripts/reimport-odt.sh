@@ -125,8 +125,8 @@ EOF
 
 upload_files() {
     echo "Uploading ODT files..."
-    rsync --progress "$local_old_file" "${remote}:${remote_old}/"
-    rsync --progress "$local_new_file" "${remote}:${remote_new}/"
+    rsync --progress --times "$local_old_file" "${remote}:${remote_old}/"
+    rsync --progress --times "$local_new_file" "${remote}:${remote_new}/"
 }
 
 evaluate() {
@@ -156,7 +156,7 @@ resolve() {
     [[ -r ${local_eval_dir}/conflicts.tsv ]] || die "missing ${local_eval_dir}/conflicts.tsv"
     require_evaluation
     echo "Uploading local 'conflicts.tsv'..."
-    rsync --progress "${local_eval_dir}/conflicts.tsv" "${remote}:${remote_new}/"
+    rsync --progress --times "${local_eval_dir}/conflicts.tsv" "${remote}:${remote_new}/"
     echo "Running 'resolve'..."
     run_reimport resolve.log resolve "$remote_evaluation_file" --from "${remote_new}/conflicts.tsv"
 }
@@ -184,7 +184,7 @@ clean() {
 sync_results() {
     echo "Syncing results to ${local_eval_dir}..."
     mkdir -p "$local_eval_dir"
-    rsync -r --progress "${remote}:${remote_new}/" "$local_eval_dir" \
+    rsync --progress --recursive --times "${remote}:${remote_new}/" "$local_eval_dir" \
         || echo "Warning: could not sync results from the server." >&2
 }
 
