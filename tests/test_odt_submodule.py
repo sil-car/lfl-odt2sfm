@@ -436,3 +436,25 @@ def test_libreoffice_spacing_trailing_runs(value, expected):
     s.append_plain_text(value)
     _use_libreoffice_spacing(s)
     assert s.serialize() == expected
+
+
+@pytest.mark.parametrize(
+    "xml, expected",
+    [
+        # After text: one literal space, then a text:s (as LibreOffice writes it).
+        ("<text:p>Label:<text:span>x<text:s/></text:span></text:p>", ' <text:s/>new'),
+        ("<text:p><text:span>Label:</text:span><text:span>x<text:s/></text:span></text:p>", ' <text:s/>new'),
+        ("<text:p>Mail:<text:a><text:span>x<text:s/></text:span></text:a></text:p>", ' <text:s/>new'),
+        # After a space, a spacer or nothing: the whole run is a text:s.
+        ("<text:p>Label: <text:span>x<text:s/></text:span></text:p>", '<text:s text:c="2"/>new'),
+        ("<text:p>Label<text:s/><text:span>x<text:s/></text:span></text:p>", '<text:s text:c="2"/>new'),
+        ("<text:p><text:span>x<text:s/></text:span></text:p>", '<text:s text:c="2"/>new'),
+    ],
+)
+def test_span_leading_spaces_encoded_like_libreoffice(xml, expected):
+    """A run of spaces starting an edited span is split at text:s as
+    LibreOffice does, so tools that compare text:s-delimited strings (the
+    LfL server's reimport-odt) see the same structure as in the original."""
+    span = Element.from_tag(xml).get_elements("descendant::text:span")[-1]
+    OdtSpan(span).text = "  new"
+    assert span.serialize().split(">", 1)[1].removesuffix("</text:span>") == expected

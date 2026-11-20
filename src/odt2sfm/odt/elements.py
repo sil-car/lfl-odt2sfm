@@ -50,7 +50,23 @@ def is_blank(text: str) -> bool:
     return text.strip(" \t\n") == ""
 
 
-def _use_libreoffice_spacing(element) -> None:
+def _follows_text(node) -> bool:
+    """True if the character just before node in its paragraph is a
+    non-space character (text:s, text:tab and text:line-break count as
+    space). LibreOffice then writes a run of spaces at the start of node as
+    one literal space plus a text:s, as it does after text inside node."""
+    while node.tag not in ("text:p", "text:h"):
+        prev = node.xpath("preceding-sibling::node()[1]")
+        if prev:
+            last = prev[0]
+            if not isinstance(last, str):  # an element: take its last node
+                last = last.xpath("descendant-or-self::node()[last()]")[0]
+            return isinstance(last, str) and not last[-1].isspace()
+        node = node.parent
+    return False
+
+
+def _use_libreoffice_spacing(element, follows_text: bool = False) -> None:
     """Re-encode text:s spacers in element's direct content the way
     LibreOffice writes them: a run of spaces after a non-space character is
     one literal space followed by a text:s for the remaining spaces.
@@ -67,10 +83,13 @@ def _use_libreoffice_spacing(element) -> None:
             if child.tag != "text:s":
                 continue
             prev_text = element.text if i == 0 else children[i - 1].tail
-            if not prev_text or prev_text[-1].isspace():
+            if prev_text:
+                if prev_text[-1].isspace():
+                    continue
+            elif not (i == 0 and follows_text):
                 continue
             if i == 0:
-                element.text = f"{prev_text} "
+                element.text = f"{prev_text or ''} "
             else:
                 children[i - 1].tail = f"{prev_text} "
             count = int(child.get_attribute("text:c") or 1)
@@ -244,9 +263,10 @@ class OdtSpan(OdtStyledElement):
             target.delete(child, keep_tail=False)
         # Span.append_plain_text writes tabs and runs of spaces as
         # text:tab / text:s elements, so they aren't collapsed on display.
+        follows_text = _follows_text(target)
         tmp = Span()
         tmp.append_plain_text(value)
-        _use_libreoffice_spacing(tmp)
+        _use_libreoffice_spacing(tmp, follows_text)
         target.text = tmp.text
         for child in list(tmp.children):
             # Element.append moves the child as is; Span.append (and
